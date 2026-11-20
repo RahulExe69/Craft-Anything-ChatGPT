@@ -396,6 +396,41 @@ mod jni_exports {
             .resolve::<ThrowRuntimeExAndDefault>()
     }
 
+    #[jni_mangle("ai.storytold.craftanything.NativeBuildBridge", "nativeInitialize")]
+    pub fn native_build_initialize<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, app_data_dir: JString<'frame>) -> jstring {
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let path = app_data_dir.try_to_string(env)?;
+                let result = match super::initialize_engine(&path) {
+                    Ok(()) => "ok".to_string(),
+                    Err(error) => format!("error:{error}"),
+                };
+                Ok(env.new_string(result)?.into_raw())
+            })
+            .resolve::<ThrowRuntimeExAndDefault>()
+    }
+
+    #[jni_mangle("ai.storytold.craftanything.NativeBuildBridge", "nativeCallTool")]
+    pub fn native_build_call_tool<'frame>(
+        mut unowned_env: EnvUnowned<'frame>,
+        _this: JObject<'frame>,
+        tool_id: JString<'frame>,
+        params_json: JString<'frame>,
+        consent_granted: jboolean,
+    ) -> jstring {
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let tool_id = tool_id.try_to_string(env)?;
+                let params_text = params_json.try_to_string(env)?;
+                let response = match engine() {
+                    Ok(engine) => dispatch_tool(engine, &tool_id, &params_text, consent_granted),
+                    Err(error) => serde_json::json!({ "ok": false, "error": error }).to_string(),
+                };
+                Ok(env.new_string(response)?.into_raw())
+            })
+            .resolve::<ThrowRuntimeExAndDefault>()
+    }
+
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeInitialize")]
     pub fn native_initialize<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, app_data_dir: JString<'frame>) -> jstring {
         unowned_env

@@ -200,8 +200,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val nativeReady = runCatching { System.loadLibrary("craft_anything_android") }.isSuccess
+        val notificationProjectFolder = intent.getStringExtra(BuildExecutionService.EXTRA_PROJECT_FOLDER)
         setContent {
-            var selected by remember { mutableStateOf("Home") }
+            var selected by remember { mutableStateOf(if (notificationProjectFolder.isNullOrBlank()) "Home" else "Projects") }
             var coreVersion by remember {
                 mutableStateOf(if (nativeReady) "Connecting to Rust core…" else "Rust core not built yet")
             }
@@ -232,7 +233,7 @@ class MainActivity : ComponentActivity() {
             var projectRequestGeneration by remember { mutableStateOf(0) }
             var selectedProjectFolder by remember { mutableStateOf<String?>(null) }
             var projectPollGeneration by remember { mutableStateOf(0) }
-            var pendingProjectFolder by remember { mutableStateOf<String?>(null) }
+            var pendingProjectFolder by remember { mutableStateOf<String?>(notificationProjectFolder) }
             var buildStatusJson by remember { mutableStateOf("") }
             var buildActivityJson by remember { mutableStateOf("") }
             var buildActivityError by remember { mutableStateOf("") }
@@ -251,6 +252,9 @@ class MainActivity : ComponentActivity() {
             var importedTargetPath by remember { mutableStateOf("") }
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { }
             val refreshProjects: () -> Unit = {
                 if (nativeReady && coreVersion.startsWith("Rust core")) {
                     val requestGeneration = projectsListRequestGeneration.incrementAndGet()
@@ -330,34 +334,49 @@ class MainActivity : ComponentActivity() {
             }
 
             val startBuild: (String) -> Unit = { paramsJson ->
-                scope.launch {
-                    buildStarting = true
-                    buildFeedback = "Preparing your project…"
-                    val response = withContext(Dispatchers.IO) {
-                        runCatching {
-                            requireOkEnvelope(
-                                nativeCallTool("rebuild_start", paramsJson, true),
-                                "Craft Anything couldn't start this build."
-                            )
+                if (!buildStarting) {
+                    scope.launch {
+                        buildStarting = true
+                        buildFeedback = "Handing your build to the background runner…"
+                        val launch = runCatching {
+                            val params = JSONObject(paramsJson)
+                            if (params.optString("project").isBlank() && params.optString("project_folder").isBlank()) {
+                                val folder = File(context.filesDir, "projects/build-\${java.util.UUID.randomUUID()}")
+                                params.put("project_folder", folder.absolutePath)
+                            }
+                            val folder = params.optString("project").ifBlank { params.optString("project_folder") }
+                            if (folder.isBlank()) throw IllegalArgumentException("The project folder couldn't be prepared.")
+                            val serviceIntent = android.content.Intent(context, BuildExecutionService::class.java).apply {
+                                action = BuildExecutionService.ACTION_START
+                                putExtra(BuildExecutionService.EXTRA_PARAMS, params.toString())
+                            }
+                            context.startForegroundService(serviceIntent)
+                            folder
                         }
-                    }
-                    response.onSuccess { payload ->
-                        val output = payload.optJSONObject("output") ?: JSONObject()
-                        val result = output.optJSONObject("result") ?: output
-                        val projectName = result.optString("project").substringAfterLast('/').ifBlank { "your project" }
-                        buildFeedback = if (result.optBoolean("started", true)) {
-                            "Build started for $projectName. You can follow its progress in Projects."
-                        } else {
-                            "Build queued for $projectName. You can follow it in Projects."
+                        launch.onSuccess { folder ->
+                            buildFeedback = "Build running in the background. You can follow it in Projects."
+                            selected = "Projects"
+                            projectPollGeneration += 1
+                            if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                                context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                            ) {
+                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    repeat(40) {
+                                        if (File(folder, "craft.json").isFile) return@withContext
+                                        delay(250)
+                                    }
+                                }
+                                pendingProjectFolder = folder
+                                refreshProjects()
+                            }
+                        }.onFailure { error ->
+                            buildFeedback = error.message ?: "Craft Anything couldn't start this build."
                         }
-                        pendingProjectFolder = result.optString("project").takeIf { it.isNotBlank() }
-                        projectPollGeneration += 1
-                        refreshProjects()
-                        selected = "Projects"
-                    }.onFailure {
-                        buildFeedback = it.message ?: "Craft Anything couldn't start this build."
+                        buildStarting = false
                     }
-                    buildStarting = false
                 }
             }
             val startAiChat: (String) -> Unit = { backend ->
