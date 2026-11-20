@@ -40,7 +40,7 @@
 - Produces `dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str) -> String`, returning a JSON envelope with `ok`, `output`, or `error`.
 - JNI entry points delegate to these helpers; no business logic remains in JNI wrappers.
 
-- [ ] **Step 1: Write failing Rust tests** for the catalogue containing `core_target_open`, a successful `core_session_show` dispatch, and malformed JSON returning `ok: false` with a useful error.
+- [x] **Step 1: Write failing Rust tests** for the catalogue containing `core_target_open`, a successful `core_session_show` dispatch, and malformed JSON returning `ok: false` with a useful error.
 - [ ] **Step 2: Run the bridge tests** with `cargo test -p craft-anything-android-bridge --lib`; confirm they fail because the helper API is not implemented.
 - [ ] **Step 3: Extract the helpers** and make the JNI exports delegate to them.
 - [ ] **Step 4: Re-run bridge tests** and the host workspace checks for the bridge.
