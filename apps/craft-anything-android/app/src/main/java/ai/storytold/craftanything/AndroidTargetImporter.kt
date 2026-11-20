@@ -1,0 +1,61 @@
+package ai.storytold.craftanything
+
+import java.io.File
+import java.io.IOException
+import java.io.InputStream
+import java.util.Locale
+import org.json.JSONObject
+
+/**
+ * Owns the Android-side copy/open/cleanup contract for a SAF-selected target.
+ *
+ * The activity obtains the provider stream (Android's ContentResolver API is context-bound)
+ * and delegates storage and engine hand-off work here.
+ */
+internal object AndroidTargetImporter {
+    fun import(
+        input: InputStream,
+        displayName: String,
+        targetsDir: File,
+        maxBytes: Long,
+        openTarget: (parametersJson: String) -> String
+    ): String {
+        var copy: File? = null
+        try {
+            if (!targetsDir.exists() && !targetsDir.mkdirs()) {
+                throw IOException("Couldn't create the private import directory.")
+            }
+
+            copy = File.createTempFile("target-", FileImport.safeSuffix(displayName), targetsDir)
+            val copiedBytes = FileImport.copyBounded(input, copy, maxBytes)
+            val parameters = JSONObject().put("path", copy.absolutePath).toString()
+            val payload = JSONObject(openTarget(parameters))
+            if (!payload.optBoolean("ok")) {
+                throw IOException(
+                    payload.optString("error").takeIf { it.isNotBlank() }
+                        ?: "The Rust engine couldn't open this file."
+                )
+            }
+
+            val target = payload.optJSONObject("output")?.optJSONObject("result")
+            val enginePath = target?.optString("path")?.takeIf { it.isNotBlank() }
+            if (enginePath != null && File(enginePath).absolutePath != copy.absolutePath) {
+                copy.delete()
+            }
+
+            val title = target?.optString("name")?.takeIf { it.isNotBlank() } ?: displayName
+            val kind = target?.optString("kind")?.takeIf { it.isNotBlank() } ?: "target"
+            return "Opened $title · $kind · ${formatByteCount(copiedBytes)}"
+        } catch (error: Exception) {
+            runCatching { input.close() }
+            copy?.delete()
+            throw error
+        }
+    }
+
+    private fun formatByteCount(bytes: Long): String = when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0)
+        else -> String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0))
+    }
+}
