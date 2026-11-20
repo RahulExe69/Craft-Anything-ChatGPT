@@ -6,8 +6,14 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
-[lints]
-workspace = true
+# JNI symbol exports require an unsafe symbol-name attribute. Keep this crate denied by default
+# and isolate that unavoidable ABI boundary in one explicitly allowed module.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
 
 [lib]
 name = "craft_anything_android"
