@@ -1,5 +1,6 @@
 package ai.storytold.craftanything
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,6 +88,8 @@ internal fun ProjectsScreen(
     val detail = remember(detailsJson) { runCatching { JSONObject(detailsJson) }.getOrNull() }
     val detailResult = detail?.takeIf { it.optBoolean("ok") }
         ?.optJSONObject("output")?.optJSONObject("result")
+
+    BackHandler(enabled = detailResult != null, onBack = onCloseDetails)
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -232,7 +236,9 @@ private fun ProjectDetails(
             Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             for (index in 0 until questions.length()) {
                 val request = questions.optJSONObject(index) ?: continue
-                ProjectInboxCard(request, folder, onAnswer)
+                key(folder, request.optString("id")) {
+                    ProjectInboxCard(request, folder, onAnswer)
+                }
             }
         }
     }
