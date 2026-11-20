@@ -17,6 +17,22 @@ class FileImportTest {
     val temporaryFolder = TemporaryFolder()
 
     @Test
+    fun preservesARecognizedFileExtensionForEngineSniffing() {
+        assertEquals(".apk", FileImport.safeSuffix("CraftApp.APK"))
+        assertEquals(".jar", FileImport.safeSuffix("plugin.jar"))
+        assertEquals(".tar", FileImport.safeSuffix("archive.tar"))
+    }
+
+    @Test
+    fun usesBinarySuffixForHiddenOrUnsafeNames() {
+        assertEquals(".bin", FileImport.safeSuffix(".env"))
+        assertEquals(".bin", FileImport.safeSuffix("no-extension"))
+        assertEquals(".bin", FileImport.safeSuffix("payload.very-long-extension"))
+        assertEquals(".bin", FileImport.safeSuffix("payload.bad/ext"))
+        assertEquals(".bin", FileImport.safeSuffix("payload."))
+    }
+
+    @Test
     fun copiesInputAndReturnsItsExactByteCount() {
         val contents = "Craft Anything – Android".toByteArray(StandardCharsets.UTF_8)
         val destination = temporaryFolder.newFile("target.bin")
