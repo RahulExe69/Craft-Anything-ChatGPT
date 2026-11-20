@@ -1,5 +1,7 @@
 package ai.storytold.craftanything
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -33,6 +36,35 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 
+private data class BuildStarter(
+    val title: String,
+    val description: String,
+    val prompt: String,
+)
+
+private val buildStarters = listOf(
+    BuildStarter(
+        "Website",
+        "A polished site or storefront",
+        "Build a polished, responsive website with a clear visual identity, refined typography, and mobile-friendly layouts."
+    ),
+    BuildStarter(
+        "Mobile app",
+        "Screens, navigation and flows",
+        "Build a complete mobile app with a cohesive visual system, intuitive navigation, and polished core user flows."
+    ),
+    BuildStarter(
+        "Dashboard",
+        "Data, charts and workflows",
+        "Build a modern dashboard with clear information hierarchy, useful data visualisations, filters, and responsive layouts."
+    ),
+    BuildStarter(
+        "Game",
+        "A playable game experience",
+        "Build a playable game with a clear core loop, polished controls, a cohesive visual style, and a working start-to-finish flow."
+    )
+)
+
 @Composable
 internal fun BuildScreen(
     backends: List<NativeAiBackend>,
@@ -48,81 +80,141 @@ internal fun BuildScreen(
 ) {
     var request by remember { mutableStateOf("") }
     var referenceUrl by remember { mutableStateOf("") }
+    var showReferenceUrl by remember { mutableStateOf(false) }
     var buildWith by remember { mutableStateOf("") }
     var generateAssets by remember { mutableStateOf(false) }
     var backendMenu by remember { mutableStateOf(false) }
     var confirmParams by remember { mutableStateOf<String?>(null) }
 
-
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("Build something", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text(
-            "Describe what you want. Craft Anything will study your reference, create a project, and work through the build with you.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(
+                "YOUR CREATIVE WORKSPACE",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFAD91FF),
+                fontWeight = FontWeight.Bold
+            )
+            Text("What are we building?", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Start with an idea. Shape it with AI, then follow every step as your project comes to life.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
 
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Your idea", fontWeight = FontWeight.SemiBold)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+            shape = RoundedCornerShape(26.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Describe your idea", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text("PROMPT", color = Color(0xFF9B7BFF), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
                 OutlinedTextField(
                     value = request,
                     onValueChange = { request = it },
-                    placeholder = { Text("Example: Build a polished offline-first notes app with folders, search and a dark theme.") },
-                    label = { Text("What should it make?") },
-                    minLines = 4,
-                    maxLines = 7,
+                    placeholder = {
+                        Text("I want to build something that… Tell Craft Anything what it should do, who it's for, and how it should feel.")
+                    },
+                    minLines = 5,
+                    maxLines = 9,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
                 )
-                OutlinedTextField(
-                    value = referenceUrl,
-                    onValueChange = { referenceUrl = it },
-                    label = { Text("Reference website (optional)") },
-                    placeholder = { Text("https://example.com") },
-                    singleLine = true,
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedButton(onClick = onChooseTarget, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (importedTargetPath.isNotBlank()) "Replace imported reference file" else "Import a local reference file")
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = { showReferenceUrl = !showReferenceUrl },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(if (showReferenceUrl) "Hide website" else "Add website") }
+                    OutlinedButton(
+                        onClick = onChooseTarget,
+                        modifier = Modifier.weight(1f)
+                    ) { Text(if (importedTargetPath.isNotBlank()) "Replace file" else "Attach files") }
+                }
+                if (showReferenceUrl || referenceUrl.isNotBlank()) {
+                    OutlinedTextField(
+                        value = referenceUrl,
+                        onValueChange = { referenceUrl = it },
+                        label = { Text("Website to use as a reference") },
+                        placeholder = { Text("https://example.com") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
                 if (importedTargetPath.isNotBlank()) {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF20202A)), modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Imported reference", fontWeight = FontWeight.SemiBold)
-                            Text(importedTargetPath.substringAfterLast('/'), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("The builder will use this file's private source folder.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF22212B)),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("REFERENCE ATTACHED", color = Color(0xFFAD91FF), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Text(importedTargetPath.substringAfterLast('/'), fontWeight = FontWeight.Medium)
+                            Text(
+                                "Copied into private app storage for the builder to inspect.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }
                 Text(
-                    "Leave the website empty to start from your description alone. Imported files are copied into an isolated app-private folder before the builder reads them.",
-                    style = MaterialTheme.typography.bodySmall,
+                    "You can start with a rough idea. Add details, screenshots or a reference website as you go.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Build settings", fontWeight = FontWeight.SemiBold)
-                Text("Builder model", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(
-                    value = buildWith,
-                    onValueChange = { buildWith = it },
-                    label = { Text("Preferred framework or engine (optional)") },
-                    placeholder = { Text("Godot 4, Unity, React, etc.") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Jump-start your idea", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Choose a direction to add a starter prompt. You can edit it afterwards.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+                BuildStarterTile(buildStarters[0], Modifier.weight(1f)) { starter ->
+                    request = appendStarter(request, starter.prompt)
+                }
+                BuildStarterTile(buildStarters[1], Modifier.weight(1f)) { starter ->
+                    request = appendStarter(request, starter.prompt)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+                BuildStarterTile(buildStarters[2], Modifier.weight(1f)) { starter ->
+                    request = appendStarter(request, starter.prompt)
+                }
+                BuildStarterTile(buildStarters[3], Modifier.weight(1f)) { starter ->
+                    request = appendStarter(request, starter.prompt)
+                }
+            }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Build configuration", fontWeight = FontWeight.SemiBold)
+                        Text("You can keep the defaults and change these later.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
                     OutlinedButton(
                         onClick = { backendMenu = true },
-                        enabled = backends.any { it.enabled },
-                        modifier = Modifier.weight(1f),
+                        enabled = backends.any { it.enabled }
                     ) {
-                        Text(backends.firstOrNull { it.name == selectedBackend }?.name ?: "Use default builder")
+                        Text(backends.firstOrNull { it.name == selectedBackend }?.name ?: "Choose builder")
                     }
                     DropdownMenu(expanded = backendMenu, onDismissRequest = { backendMenu = false }) {
                         backends.filter { it.enabled }.forEach { backend ->
@@ -131,19 +223,27 @@ internal fun BuildScreen(
                                 onClick = {
                                     onBackendSelected(backend.name)
                                     backendMenu = false
-                                },
+                                }
                             )
                         }
                     }
                 }
+                OutlinedTextField(
+                    value = buildWith,
+                    onValueChange = { buildWith = it },
+                    label = { Text("Framework or engine (optional)") },
+                    placeholder = { Text("React, Kotlin / Compose, Godot 4…") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = generateAssets, onCheckedChange = { generateAssets = it })
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Allow generated pictures and 3D assets")
+                    Column(Modifier.weight(1f)) {
+                        Text("Generate images and 3D assets", fontWeight = FontWeight.Medium)
                         Text(
-                            "Optional. This can use a configured asset-provider key and the project's asset budget.",
-                            style = MaterialTheme.typography.bodySmall,
+                            "May use your configured asset provider and project budget.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
@@ -151,15 +251,24 @@ internal fun BuildScreen(
         }
 
         if (backends.none { it.enabled }) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2118)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text("Connect a builder first", fontWeight = FontWeight.SemiBold)
-                    Text("Open Settings and add an API provider, then assign it to the Builder role.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2118)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("Connect a builder to get started", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Open Settings and add an AI provider, then assign it to the Builder role.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
+
         if (feedback.isNotBlank()) {
-            Text(feedback, color = MaterialTheme.colorScheme.primary)
+            Text(feedback, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
         }
 
         Button(
@@ -186,13 +295,14 @@ internal fun BuildScreen(
             },
             enabled = request.isNotBlank() && !starting && backends.any { it.enabled },
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Text(if (starting) "Starting build…" else "Review and start build")
+            Text(if (starting) "Starting your build…" else "Start building")
         }
         OutlinedButton(onClick = onOpenProjects, modifier = Modifier.fillMaxWidth()) {
-            Text("View my projects")
+            Text("Open my projects")
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
     }
 
     confirmParams?.let { params ->
@@ -201,7 +311,7 @@ internal fun BuildScreen(
             title = { Text("Start this build?") },
             text = {
                 Text(
-                    "Craft Anything will use the selected AI provider, create project files, access the reference you supplied, and may run build commands. Only continue if you trust the target and the project request.",
+                    "Craft Anything will use the selected AI provider, create project files, access the reference you supplied, and may run build commands. Only continue if you trust the target and the project request."
                 )
             },
             confirmButton = {
@@ -212,7 +322,35 @@ internal fun BuildScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmParams = null }) { Text("Cancel") }
-            },
+            }
         )
+    }
+}
+
+private fun appendStarter(current: String, addition: String): String =
+    if (current.isBlank()) addition else "$current\n\n$addition"
+
+@Composable
+private fun BuildStarterTile(
+    starter: BuildStarter,
+    modifier: Modifier = Modifier,
+    onSelect: (BuildStarter) -> Unit
+) {
+    Card(
+        modifier = modifier.clickable { onSelect(starter) },
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+        shape = RoundedCornerShape(17.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(13.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(starter.title, fontWeight = FontWeight.SemiBold)
+            Text(
+                starter.description,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
