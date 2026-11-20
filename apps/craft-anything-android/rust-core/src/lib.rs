@@ -14,8 +14,7 @@ fn settings_for_app_data_dir(app_data_dir: &str) -> Result<Settings, String> {
         return Err("Android app data directory must be an absolute path.".to_string());
     }
     let projects_dir = root.join("projects");
-    std::fs::create_dir_all(&projects_dir)
-        .map_err(|error| format!("Couldn't create the private projects directory: {error}"))?;
+    std::fs::create_dir_all(&projects_dir).map_err(|error| format!("Couldn't create the private projects directory: {error}"))?;
     let mut settings = Settings::default();
     settings.projects_dir = Some(projects_dir);
     Ok(settings)
@@ -28,31 +27,34 @@ fn initialize_engine(app_data_dir: &str) -> Result<(), String> {
     let settings = settings_for_app_data_dir(app_data_dir)?;
     let configured = Arc::new(Engine::new(Session::new(settings)));
     let _ = ENGINE.set(configured);
-    if ENGINE.get().is_some() {
-        Ok(())
-    } else {
-        Err("The Rust engine couldn't be initialized.".to_string())
-    }
+    if ENGINE.get().is_some() { Ok(()) } else { Err("The Rust engine couldn't be initialized.".to_string()) }
 }
 
-fn engine() -> &'static Arc<Engine> {
-    ENGINE.get_or_init(|| Engine::new(Session::new(Settings::default())).into())
+fn engine() -> Result<&'static Arc<Engine>, String> {
+    ENGINE
+        .get()
+        .ok_or_else(|| "The Rust engine has not been initialized.".to_string())
 }
 
 /// Serialize the tools registered by the engine for the native Android browser.
 fn tool_catalog_json(engine: &Engine) -> String {
-    let tools: Vec<_> = engine.registry().all().iter().map(|tool| {
-        serde_json::json!({
-            "id": tool.id,
-            "title": tool.title,
-            "summary": tool.summary,
-            "toolset": tool.toolset.id(),
-            "toolset_title": tool.toolset.title(),
-            "effects": tool.effects.bits(),
-            "requires_consent": tool.effects.needs_consent(),
-            "input_schema": (tool.input_schema)(),
+    let tools: Vec<_> = engine
+        .registry()
+        .all()
+        .iter()
+        .map(|tool| {
+            serde_json::json!({
+                "id": tool.id,
+                "title": tool.title,
+                "summary": tool.summary,
+                "toolset": tool.toolset.id(),
+                "toolset_title": tool.toolset.title(),
+                "effects": tool.effects.bits(),
+                "requires_consent": tool.effects.needs_consent(),
+                "input_schema": (tool.input_schema)(),
+            })
         })
-    }).collect();
+        .collect();
 
     serde_json::to_string(&tools).unwrap_or_else(|error| {
         log::error!("couldn't serialize the Android tool catalog: {error}");
@@ -63,12 +65,10 @@ fn tool_catalog_json(engine: &Engine) -> String {
 /// Dispatch a registered engine tool and return a stable JSON envelope.
 fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_granted: bool) -> String {
     let result = (|| -> Result<Value, String> {
-        let params: Value = serde_json::from_str(params_json)
-            .map_err(|error| format!("Invalid tool parameters: {error}"))?;
+        let params: Value = serde_json::from_str(params_json).map_err(|error| format!("Invalid tool parameters: {error}"))?;
         let consent = if consent_granted { Consent::Granted } else { Consent::NotAsked };
         let options = CallOptions::new(Caller::Ui).with_consent(consent);
-        let output = engine.call(tool_id, params, options)
-            .map_err(|error| error.message)?;
+        let output = engine.call(tool_id, params, options).map_err(|error| error.message)?;
         Ok(serde_json::json!({ "ok": true, "output": output.to_json() }))
     })();
 
@@ -84,10 +84,10 @@ fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_gran
 #[allow(unsafe_code)]
 mod jni_exports {
     use super::{dispatch_tool, engine, tool_catalog_json};
+    use jni::EnvUnowned;
     use jni::errors::ThrowRuntimeExAndDefault;
     use jni::objects::{JObject, JString};
     use jni::sys::{jboolean, jstring};
-    use jni::EnvUnowned;
 
     #[unsafe(no_mangle)]
     pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeInitialize<'frame>(
@@ -113,9 +113,7 @@ mod jni_exports {
         _this: JObject<'frame>,
     ) -> jstring {
         unowned_env
-            .with_env(|env| -> jni::errors::Result<jstring> {
-                Ok(env.new_string(env!("CARGO_PKG_VERSION"))?.into_raw())
-            })
+            .with_env(|env| -> jni::errors::Result<jstring> { Ok(env.new_string(env!("CARGO_PKG_VERSION"))?.into_raw()) })
             .resolve::<ThrowRuntimeExAndDefault>()
     }
 
@@ -126,7 +124,13 @@ mod jni_exports {
     ) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
-                let catalog = tool_catalog_json(engine());
+                let catalog = match engine() {
+                    Ok(engine) => tool_catalog_json(engine),
+                    Err(error) => {
+                        log::error!("couldn't read the Android tool catalog: {error}");
+                        "[]".to_string()
+                    }
+                };
                 Ok(env.new_string(catalog)?.into_raw())
             })
             .resolve::<ThrowRuntimeExAndDefault>()
@@ -145,7 +149,10 @@ mod jni_exports {
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let tool_id = tool_id.try_to_string(env)?;
                 let params_text = params_json.try_to_string(env)?;
-                let response = dispatch_tool(engine(), &tool_id, &params_text, consent_granted);
+                let response = match engine() {
+                    Ok(engine) => dispatch_tool(engine, &tool_id, &params_text, consent_granted),
+                    Err(error) => serde_json::json!({ "ok": false, "error": error }).to_string(),
+                };
                 Ok(env.new_string(response)?.into_raw())
             })
             .resolve::<ThrowRuntimeExAndDefault>()
@@ -159,7 +166,6 @@ mod tests {
     fn test_engine() -> Engine {
         Engine::new(Session::new(Settings::default()))
     }
-
 
     #[test]
     fn android_settings_use_a_private_projects_directory() {
@@ -190,13 +196,8 @@ mod tests {
             let response = dispatch_tool(&configured_engine, "project_list", "{}", false);
             let value = serde_json::from_str::<Value>(&response).unwrap_or(Value::Null);
             assert_eq!(value["ok"], Value::Bool(true));
-            let expected_dir = projects_dir
-                .map(|directory| directory.display().to_string())
-                .unwrap_or_default();
-            assert_eq!(
-                value["output"]["result"]["projects_dir"].as_str(),
-                Some(expected_dir.as_str())
-            );
+            let expected_dir = projects_dir.map(|directory| directory.display().to_string()).unwrap_or_default();
+            assert_eq!(value["output"]["result"]["projects_dir"].as_str(), Some(expected_dir.as_str()));
         }
         let _ = std::fs::remove_dir_all(root);
     }
@@ -205,9 +206,7 @@ mod tests {
     fn catalogue_includes_the_file_open_tool() {
         let catalog = tool_catalog_json(&test_engine());
         let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
-        let includes_open = value.as_array().is_some_and(|items| {
-            items.iter().any(|item| item["id"] == "core_target_open")
-        });
+        let includes_open = value.as_array().is_some_and(|items| items.iter().any(|item| item["id"] == "core_target_open"));
         assert!(includes_open, "the Android catalogue must expose core_target_open");
     }
 
@@ -221,10 +220,7 @@ mod tests {
         let items = value.as_array().unwrap_or(&empty_items);
         assert!(items.iter().all(|item| item["input_schema"].is_object()));
         assert!(items.iter().all(|item| item["requires_consent"].is_boolean()));
-        assert!(
-            items.iter().any(|item| item["requires_consent"] == Value::Bool(true)),
-            "the registry should expose at least one consent-gated tool"
-        );
+        assert!(items.iter().any(|item| item["requires_consent"] == Value::Bool(true)), "the registry should expose at least one consent-gated tool");
     }
 
 
