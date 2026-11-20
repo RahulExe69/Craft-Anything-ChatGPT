@@ -3,9 +3,6 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 use craft_anything_engine::{CallOptions, Caller, Engine, Session, Settings};
-use jni::objects::{JClass, JString};
-use jni::sys::jstring;
-use jni::JNIEnv;
 use serde_json::Value;
 use std::sync::{Arc, OnceLock};
 
@@ -13,16 +10,6 @@ static ENGINE: OnceLock<Arc<Engine>> = OnceLock::new();
 
 fn engine() -> &'static Arc<Engine> {
     ENGINE.get_or_init(|| Engine::new(Session::new(Settings::default())).into())
-}
-
-fn into_java_string(env: &mut JNIEnv<'_>, value: String) -> jstring {
-    match env.new_string(value) {
-        Ok(value) => value.into_raw(),
-        Err(error) => {
-            log::error!("couldn't allocate a Java string for the Android bridge: {error}");
-            std::ptr::null_mut()
-        }
-    }
 }
 
 /// Serialize the tools registered by the engine for the native Android browser.
@@ -59,42 +46,59 @@ fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str) -> String {
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeVersion(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-) -> jstring {
-    into_java_string(&mut env, env!("CARGO_PKG_VERSION").to_string())
-}
+// The Rust workspace continues to forbid unsafe code everywhere else. This one module is the
+// ABI boundary: only the JNI export-name attributes are allowed here; JNI access itself uses
+// jni-rs' safe EnvUnowned::with_env API, and no raw-pointer operations are performed.
+#[allow(unsafe_code)]
+mod jni_exports {
+    use super::{dispatch_tool, engine, tool_catalog_json};
+    use jni::errors::ThrowRuntimeExAndDefault;
+    use jni::objects::{JClass, JString};
+    use jni::sys::jstring;
+    use jni::EnvUnowned;
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeToolCatalog(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-) -> jstring {
-    into_java_string(&mut env, tool_catalog_json(engine()))
-}
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeVersion<'frame>(
+        mut unowned_env: EnvUnowned<'frame>,
+        _class: JClass<'frame>,
+    ) -> jstring {
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                Ok(env.new_string(env!("CARGO_PKG_VERSION"))?.into_raw())
+            })
+            .resolve::<ThrowRuntimeExAndDefault>()
+    }
 
-/// Dispatch one registered engine tool. The caller must run this off the Android UI thread.
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeCallTool(
-    mut env: JNIEnv<'_>,
-    _class: JClass<'_>,
-    tool_id: JString<'_>,
-    params_json: JString<'_>,
-) -> jstring {
-    let result = (|| -> Result<String, String> {
-        let tool_id = env.get_string(&tool_id)
-            .map_err(|error| error.to_string())?.to_string_lossy().into_owned();
-        let params_text = env.get_string(&params_json)
-            .map_err(|error| error.to_string())?.to_string_lossy().into_owned();
-        Ok(dispatch_tool(engine(), &tool_id, &params_text))
-    })();
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeToolCatalog<'frame>(
+        mut unowned_env: EnvUnowned<'frame>,
+        _class: JClass<'frame>,
+    ) -> jstring {
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let catalog = tool_catalog_json(engine());
+                Ok(env.new_string(catalog)?.into_raw())
+            })
+            .resolve::<ThrowRuntimeExAndDefault>()
+    }
 
-    let json = result.unwrap_or_else(|message| {
-        serde_json::json!({ "ok": false, "error": message }).to_string()
-    });
-    into_java_string(&mut env, json)
+    /// Dispatch one registered engine tool. Kotlin must call this away from the UI thread.
+    #[unsafe(no_mangle)]
+    pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeCallTool<'frame>(
+        mut unowned_env: EnvUnowned<'frame>,
+        _class: JClass<'frame>,
+        tool_id: JString<'frame>,
+        params_json: JString<'frame>,
+    ) -> jstring {
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let tool_id = tool_id.try_to_string(env)?;
+                let params_text = params_json.try_to_string(env)?;
+                let response = dispatch_tool(engine(), &tool_id, &params_text);
+                Ok(env.new_string(response)?.into_raw())
+            })
+            .resolve::<ThrowRuntimeExAndDefault>()
+    }
 }
 
 #[cfg(test)]
