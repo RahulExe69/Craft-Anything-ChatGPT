@@ -73,6 +73,35 @@ class ProjectsScreenTest {
     }
 
     @Test
+    fun showsLiveBuildStatusActivityAndStopAction() {
+        val folder = "/private/projects/pocket-notes"
+        val detail = """{"ok":true,"output":{"result":{"name":"Pocket Notes","folder":"$folder","status":"building","status_label":"Building","questions":[],"conversation":{"total":3}}}}"""
+        val status = """{"ok":true,"output":{"result":{"running":true,"queued":null,"status":"building","status_label":"Building","note":"Checking the generated pages"}}}"""
+        val activity = """{"ok":true,"output":{"result":{"lines":["22:00:01 stage Studying the reference","22:00:02 start Reading src/main.kt"]}}}"""
+        val stopped = AtomicReference<String?>(null)
+        composeRule.setContent {
+            ProjectsScreen(
+                projectsJson = projectResponse,
+                loading = false,
+                error = "",
+                detailsJson = detail,
+                onRefresh = {},
+                onOpenProject = {},
+                onCloseDetails = {},
+                buildStatusJson = status,
+                activityJson = activity,
+                onStopBuild = { stopped.set(it) }
+            )
+        }
+
+        composeRule.onNodeWithText("Live build activity").assertIsDisplayed()
+        composeRule.onNodeWithText("Building now").assertIsDisplayed()
+        composeRule.onNodeWithText("22:00:02 start Reading src/main.kt").assertIsDisplayed()
+        composeRule.onNodeWithText("Stop build").performClick()
+        composeRule.runOnIdle { assertEquals(folder, stopped.get()) }
+    }
+
+    @Test
     fun emptyProjectListExplainsWhereProjectsWillAppear() {
         composeRule.setContent {
             ProjectsScreen(
