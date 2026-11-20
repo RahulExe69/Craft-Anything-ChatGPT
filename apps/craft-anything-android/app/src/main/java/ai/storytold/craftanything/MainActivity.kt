@@ -367,6 +367,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val addBuildNote: (String, String) -> Unit = { projectFolder, note ->
+                scope.launch {
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val params = JSONObject()
+                                .put("project", projectFolder)
+                                .put("text", note.trim())
+                            requireOkEnvelope(
+                                nativeCallTool("rebuild_note", params.toString(), false),
+                                "Couldn't send this direction to the builder."
+                            )
+                        }
+                    }
+                    response.onSuccess {
+                        buildActivityMessage = "Direction sent. The builder will read it at its next step."
+                    }.onFailure {
+                        buildActivityMessage = it.message ?: "Couldn't send this direction to the builder."
+                    }
+                }
+            }
+
             LaunchedEffect(selectedProjectFolder) {
                 val projectFolder = selectedProjectFolder ?: return@LaunchedEffect
                 while (true) {
@@ -646,6 +667,7 @@ class MainActivity : ComponentActivity() {
                                 activityError = buildActivityError,
                                 activityMessage = buildActivityMessage,
                                 onStopBuild = stopBuild,
+                                onAddBuildNote = addBuildNote,
                                 onRefresh = refreshProjects,
                                 onOpenProject = openProject,
                                 onCloseDetails = {
