@@ -135,7 +135,10 @@ internal fun listProjectFilesJson(appFolder: String): String = runCatching {
                     .put("kind", kind)
             )
             total += 1
-            if (total >= 300 && (pending.isNotEmpty() || children.lastOrNull() != child)) truncated = true
+            if (total >= 300) {
+                truncated = pending.isNotEmpty() || children.lastOrNull() != child
+                break
+            }
         }
     }
     JSONObject().put("ok", true).put(
@@ -444,6 +447,16 @@ class MainActivity : ComponentActivity() {
                 projectRequestGeneration = requestGeneration
                 selectedProjectFolder = folder
                 projectDetailsJson = ""
+                projectFilesJson = """{"ok":true,"output":{"result":{"files":[],"truncated":false}}}"""
+                projectFilesLoading = false
+                projectFilesError = ""
+                projectFilesFolder = ""
+                selectedProjectFileJson = ""
+                selectedProjectFileLoading = false
+                previewUrl = ""
+                previewLoading = false
+                previewError = ""
+                previewFolder = ""
                 scope.launch {
                     val response = withContext(Dispatchers.IO) {
                         runCatching {
@@ -877,6 +890,7 @@ class MainActivity : ComponentActivity() {
                                 filesJson = projectFilesJson,
                                 selectedFileJson = selectedProjectFileJson,
                                 filesLoading = projectFilesLoading,
+                                selectedFileLoading = selectedProjectFileLoading,
                                 filesError = projectFilesError,
                                 previewUrl = if (previewFolder == selectedProjectFolder) previewUrl else "",
                                 previewLoading = previewLoading && previewFolder == selectedProjectFolder,
