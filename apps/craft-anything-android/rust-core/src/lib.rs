@@ -78,19 +78,17 @@ fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_gran
     }
 }
 
-// The Rust workspace continues to forbid unsafe code everywhere else. This one module is the
-// ABI boundary: only the JNI export-name attributes are allowed here; JNI access itself uses
-// jni-rs' safe EnvUnowned::with_env API, and no raw-pointer operations are performed.
-#[allow(unsafe_code)]
+// Keep the JNI ABI naming in jni-rs' audited attribute macro. This avoids hand-written
+// unsafe symbol attributes and lets the bridge crate forbid unsafe code outright.
 mod jni_exports {
     use super::{dispatch_tool, engine, tool_catalog_json};
-    use jni::EnvUnowned;
     use jni::errors::ThrowRuntimeExAndDefault;
     use jni::objects::{JObject, JString};
     use jni::sys::{jboolean, jstring};
+    use jni::{jni_mangle, EnvUnowned};
 
-    #[unsafe(no_mangle)]
-    pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeInitialize<'frame>(
+    #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeInitialize")]
+    pub fn native_initialize<'frame>(
         mut unowned_env: EnvUnowned<'frame>,
         _this: JObject<'frame>,
         app_data_dir: JString<'frame>,
@@ -107,18 +105,20 @@ mod jni_exports {
             .resolve::<ThrowRuntimeExAndDefault>()
     }
 
-    #[unsafe(no_mangle)]
-    pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeVersion<'frame>(
+    #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeVersion")]
+    pub fn native_version<'frame>(
         mut unowned_env: EnvUnowned<'frame>,
         _this: JObject<'frame>,
     ) -> jstring {
         unowned_env
-            .with_env(|env| -> jni::errors::Result<jstring> { Ok(env.new_string(env!("CARGO_PKG_VERSION"))?.into_raw()) })
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                Ok(env.new_string(env!("CARGO_PKG_VERSION"))?.into_raw())
+            })
             .resolve::<ThrowRuntimeExAndDefault>()
     }
 
-    #[unsafe(no_mangle)]
-    pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeToolCatalog<'frame>(
+    #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeToolCatalog")]
+    pub fn native_tool_catalog<'frame>(
         mut unowned_env: EnvUnowned<'frame>,
         _this: JObject<'frame>,
     ) -> jstring {
@@ -137,8 +137,8 @@ mod jni_exports {
     }
 
     /// Dispatch one registered engine tool. Kotlin must call this away from the UI thread.
-    #[unsafe(no_mangle)]
-    pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeCallTool<'frame>(
+    #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeCallTool")]
+    pub fn native_call_tool<'frame>(
         mut unowned_env: EnvUnowned<'frame>,
         _this: JObject<'frame>,
         tool_id: JString<'frame>,
