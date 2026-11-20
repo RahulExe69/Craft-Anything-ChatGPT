@@ -6,8 +6,7 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
-# JNI symbol exports require an unsafe symbol-name attribute. Keep this crate denied by default
-# and isolate that unavoidable ABI boundary in one explicitly allowed module.
+# Use jni-rs' audited name-mangling macro so this bridge can keep unsafe Rust forbidden.
 [lints.rust]
 unsafe_code = "forbid"
 
