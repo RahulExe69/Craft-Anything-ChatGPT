@@ -59,6 +59,16 @@ jobs:
         working-directory: apps/craft-anything-android
         run: gradle :app:testDebugUnitTest
 
+      - name: Run Compose UI tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          working-directory: apps/craft-anything-android
+          script: gradle :app:connectedDebugAndroidTest
+
       - name: Build debug APK
         working-directory: apps/craft-anything-android
         run: gradle :app:assembleDebug
