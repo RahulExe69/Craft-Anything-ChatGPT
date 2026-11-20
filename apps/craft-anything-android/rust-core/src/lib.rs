@@ -28,7 +28,7 @@ fn settings_for_app_data_dir(app_data_dir: &str) -> Result<Settings, String> {
 fn initialize_engine(app_data_dir: &str) -> Result<(), String> {
     if ENGINE.get().is_none() {
         let settings = settings_for_app_data_dir(app_data_dir)?;
-        let configured = Arc::new(Engine::new(Session::new(settings)));
+        let configured = Engine::shared(Session::new(settings), craft_anything_ai::tools());
         let _ = ENGINE.set(configured);
     }
     let configured = engine()?.clone();
