@@ -19,16 +19,28 @@ fn settings_for_app_data_dir(app_data_dir: &str) -> Result<Settings, String> {
         return Err("Android app data directory must be an absolute path.".to_string());
     }
     let projects_dir = root.join("projects");
+    let engines_dir = root.join("engines");
     std::fs::create_dir_all(&projects_dir).map_err(|error| format!("Couldn't create the private projects directory: {error}"))?;
-    let mut settings = Settings::default();
+    std::fs::create_dir_all(&engines_dir).map_err(|error| format!("Couldn't create the private engines directory: {error}"))?;
+    let settings_path = root.join("config.toml");
+    let mut settings = match std::fs::read_to_string(&settings_path) {
+        Ok(contents) => craft_anything_engine::settings::read_settings(&contents)
+            .map_err(|error| format!("Couldn't load Android app settings: {error}"))?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Settings::default(),
+        Err(error) => return Err(format!("Couldn't read Android app settings: {error}")),
+    };
     settings.projects_dir = Some(projects_dir);
+    settings.engines.store_dir = Some(engines_dir);
     Ok(settings)
 }
 
 fn initialize_engine(app_data_dir: &str) -> Result<(), String> {
     if ENGINE.get().is_none() {
         let settings = settings_for_app_data_dir(app_data_dir)?;
-        let configured = Engine::shared(Session::new(settings), craft_anything_ai::tools());
+        let root = std::path::PathBuf::from(app_data_dir);
+        let mut session = Session::isolated(&root);
+        session.settings = settings;
+        let configured = Engine::shared(session, craft_anything_ai::tools());
         let _ = ENGINE.set(configured);
     }
     let configured = engine()?.clone();
@@ -36,8 +48,8 @@ fn initialize_engine(app_data_dir: &str) -> Result<(), String> {
         let root = std::path::PathBuf::from(app_data_dir);
         let hub = AiHub::with_stores(
             configured,
-            root.join("settings.toml"),
-            KeyStore::file_only(root.join("ai-keys.toml")),
+            root.join("config.toml"),
+            KeyStore::at_config_dir(&root),
         );
         let _ = AI_HUB.set(hub);
     }
