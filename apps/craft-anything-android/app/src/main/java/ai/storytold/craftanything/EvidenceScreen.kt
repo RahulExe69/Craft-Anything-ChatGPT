@@ -112,7 +112,7 @@ internal fun EvidenceScreen(
             Column(Modifier.weight(1f)) {
                 Text("Evidence & questions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "${evidence.size} evidence records · ${unknowns.size} open questions",
+                    "${evidence.size} evidence records · ${unknowns.size} recorded questions",
                     color = Color(0xFF9A97A8),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -167,12 +167,12 @@ internal fun EvidenceScreen(
 
             item {
                 Spacer(Modifier.padding(top = 4.dp))
-                Text("Open questions", color = Color(0xFF9B7BFF), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text("Recorded questions", color = Color(0xFF9B7BFF), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
             if (unknowns.isEmpty()) {
                 item {
                     EmptyEvidenceCard(
-                        "No open questions",
+                        "No recorded questions",
                         "Unresolved items recorded by the analysis engine will be listed here."
                     )
                 }
