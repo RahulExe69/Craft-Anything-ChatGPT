@@ -58,14 +58,14 @@ fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_gran
 mod jni_exports {
     use super::{dispatch_tool, engine, tool_catalog_json};
     use jni::errors::ThrowRuntimeExAndDefault;
-    use jni::objects::{JClass, JString};
+    use jni::objects::{JObject, JString};
     use jni::sys::{jboolean, jstring};
     use jni::EnvUnowned;
 
     #[unsafe(no_mangle)]
     pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeVersion<'frame>(
         mut unowned_env: EnvUnowned<'frame>,
-        _class: JClass<'frame>,
+        _this: JObject<'frame>,
     ) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
