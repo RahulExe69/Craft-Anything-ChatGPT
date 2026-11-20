@@ -95,7 +95,7 @@ class ToolsScreenTest {
                 catalogue,
                 "Rust core v0.6.1",
                 "",
-                { toolId, _ -> invokedTool.set(toolId) }
+                { toolId, _, _ -> invokedTool.set(toolId) }
             )
         }
 
