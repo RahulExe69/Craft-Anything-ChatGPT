@@ -19,3 +19,6 @@ Task interfaces are sequential: Task 1 produces the tested Rust bridge helpers c
 
 
 - Task 5 (first slice): The JNI bridge now accepts the Android app's `filesDir` on `nativeInitialize`, configures `Settings.projects_dir = filesDir/projects`, and creates that private directory. The Projects tab loads the actual `project_list` tool output, can refresh, opens a project with `project_show`, and displays status, request, stack, waiting questions and conversation counts. Added an Android instrumentation test for list parsing/rendering/navigation and a Rust test checking the configured project directory. The latest code changes need fresh CI verification; evidence browsing is still pending.
+
+
+- Task 5 (evidence slice): Added `EvidenceScreen.kt` and `EvidenceScreenTest.kt`. The tab fetches `core_evidence_show` with `detail=summary` plus `core_unknowns_show`; the view surfaces operation, summary, confidence, coverage, limitations, and unknown question/domain/severity/status. Tests cover parsing, populated rendering and empty states. Evidence is scoped to the live engine session; project-level historical evidence is not yet merged into this view. Latest Android workflow run `44725919811` was queued/in progress when this entry was written; UI tests and APK packaging remain unverified.
