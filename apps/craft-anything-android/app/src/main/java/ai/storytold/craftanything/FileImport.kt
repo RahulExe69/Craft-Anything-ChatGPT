@@ -30,12 +30,12 @@ internal object FileImport {
 
         var completed = false
         try {
-            val parent = destination.parentFile
-            if (parent != null && !parent.exists() && !parent.mkdirs()) {
-                throw IOException("Couldn't create the private import directory.")
-            }
-
             val copied = input.use { source ->
+                val parent = destination.parentFile
+                if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                    throw IOException("Couldn't create the private import directory.")
+                }
+
                 FileOutputStream(destination).use { output ->
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     var total = 0L
