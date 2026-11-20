@@ -66,7 +66,7 @@ private const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
 class MainActivity : ComponentActivity() {
     private external fun nativeVersion(): String
     private external fun nativeToolCatalog(): String
-    private external fun nativeCallTool(toolId: String, paramsJson: String): String
+    private external fun nativeCallTool(toolId: String, paramsJson: String, consentGranted: Boolean): String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
                                         ?: throw IOException("The selected document provider returned no readable stream.")
                                     val copiedBytes = FileImport.copyBounded(input, copy, MAX_IMPORT_BYTES)
                                     val parameters = JSONObject().put("path", copy.absolutePath).toString()
-                                    val payload = JSONObject(nativeCallTool("core_target_open", parameters))
+                                    val payload = JSONObject(nativeCallTool("core_target_open", parameters, false))
                                     if (!payload.optBoolean("ok")) {
                                         copy.delete()
                                         throw IOException(payload.optString("error", "The Rust engine couldn't open this file."))
@@ -211,11 +211,11 @@ class MainActivity : ComponentActivity() {
                                 catalogJson = toolCatalogJson,
                                 coreVersion = coreVersion,
                                 result = toolResult,
-                                onInvoke = { toolId, paramsJson ->
+                                onInvoke = { toolId, paramsJson, consentGranted ->
                                     toolResult = "Running $toolId…"
                                     scope.launch {
                                         val response = withContext(Dispatchers.IO) {
-                                            runCatching { JSONObject(nativeCallTool(toolId, paramsJson)) }
+                                            runCatching { JSONObject(nativeCallTool(toolId, paramsJson, consentGranted)) }
                                         }
                                         response.onSuccess { payload ->
                                             toolResult = if (payload.optBoolean("ok")) {
