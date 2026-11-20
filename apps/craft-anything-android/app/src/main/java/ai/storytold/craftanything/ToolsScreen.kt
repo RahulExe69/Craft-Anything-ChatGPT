@@ -84,7 +84,7 @@ internal fun ToolsScreen(
     catalogJson: String,
     coreVersion: String,
     result: String,
-    onInvoke: (toolId: String, paramsJson: String) -> Unit,
+    onInvoke: (toolId: String, paramsJson: String, consentGranted: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tools = remember(catalogJson) { parseToolCatalog(catalogJson) }
@@ -165,7 +165,7 @@ internal fun ToolsScreen(
                                     candidate.onSuccess { normalized ->
                                         validationError = null
                                         if (tool.requiresConsent) approvalTool = tool
-                                        else onInvoke(tool.id, normalized)
+                                        else onInvoke(tool.id, normalized, false)
                                     }.onFailure {
                                         validationError = "Enter a valid JSON object before running this tool."
                                     }
@@ -209,7 +209,7 @@ internal fun ToolsScreen(
                 Button(onClick = {
                     val approved = tool
                     approvalTool = null
-                    onInvoke(approved.id, paramsJson)
+                    onInvoke(approved.id, paramsJson, true)
                 }) {
                     Text("Approve once and run")
                 }
