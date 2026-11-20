@@ -102,7 +102,8 @@
 **Files:**
 - Create: `apps/craft-anything-android/app/src/main/java/ai/storytold/craftanything/ProjectsScreen.kt`
 - Create: `apps/craft-anything-android/app/src/androidTest/java/ai/storytold/craftanything/ProjectsScreenTest.kt`
-- Create later: `apps/craft-anything-android/app/src/main/java/ai/storytold/craftanything/EvidenceScreen.kt`
+- Create: `apps/craft-anything-android/app/src/main/java/ai/storytold/craftanything/EvidenceScreen.kt`
+- Create: `apps/craft-anything-android/app/src/androidTest/java/ai/storytold/craftanything/EvidenceScreenTest.kt`
 - Modify: Rust bridge and Android navigation.
 
 **Interfaces:**
@@ -110,10 +111,11 @@
 - Persist user-visible state using app-private storage; do not present process-memory-only results as durable.
 
 - [x] **Step 1: Add a Rust bridge test** proving `project_list` reads from the configured Android app-private projects directory; evidence-list coverage remains pending.
-- [ ] **Step 2: Run the bridge test** and confirm the configured directory is honoured.
+- [ ] **Step 2: Run the bridge and emulator tests** and confirm project storage, evidence parsing and both screens render correctly.
 - [x] **Step 3: Configure an app-private projects directory** during the first native initialisation, and wire real `project_list` / `project_show` calls into the Projects screen.
 - [x] **Step 4: Add the Compose Projects screen** for project status, waiting questions, overview metrics, and navigation back to the list, with emulator UI tests.
-- [ ] **Step 5: Run the bridge and emulator UI suites.** Evidence browsing remains a separate next slice.
+- [x] **Step 5: Add the Evidence screen** for session records and unknowns, with engine-backed refresh and Compose tests for populated and empty states.
+- [ ] **Step 6: Run the bridge and emulator UI suites** on the latest source revision.
 
 ### Task 6: Android platform adapters and AI integration
 
