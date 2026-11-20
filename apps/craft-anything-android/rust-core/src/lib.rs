@@ -2,7 +2,7 @@
 //! permissions; the Rust engine remains the source of truth for tools and evidence.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
-use craft_anything_engine::{CallOptions, Caller, Engine, Session, Settings};
+use craft_anything_engine::{CallOptions, Caller, Consent, Engine, Session, Settings};
 use serde_json::Value;
 use std::sync::{Arc, OnceLock};
 
@@ -34,11 +34,13 @@ fn tool_catalog_json(engine: &Engine) -> String {
 }
 
 /// Dispatch a registered engine tool and return a stable JSON envelope.
-fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str) -> String {
+fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_granted: bool) -> String {
     let result = (|| -> Result<Value, String> {
         let params: Value = serde_json::from_str(params_json)
             .map_err(|error| format!("Invalid tool parameters: {error}"))?;
-        let output = engine.call(tool_id, params, CallOptions::new(Caller::Ui))
+        let consent = if consent_granted { Consent::Granted } else { Consent::NotAsked };
+        let options = CallOptions::new(Caller::Ui).with_consent(consent);
+        let output = engine.call(tool_id, params, options)
             .map_err(|error| error.message)?;
         Ok(serde_json::json!({ "ok": true, "output": output.to_json() }))
     })();
@@ -57,7 +59,7 @@ mod jni_exports {
     use super::{dispatch_tool, engine, tool_catalog_json};
     use jni::errors::ThrowRuntimeExAndDefault;
     use jni::objects::{JClass, JString};
-    use jni::sys::jstring;
+    use jni::sys::{jboolean, jstring};
     use jni::EnvUnowned;
 
     #[unsafe(no_mangle)]
@@ -92,12 +94,13 @@ mod jni_exports {
         _class: JClass<'frame>,
         tool_id: JString<'frame>,
         params_json: JString<'frame>,
+        consent_granted: jboolean,
     ) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let tool_id = tool_id.try_to_string(env)?;
                 let params_text = params_json.try_to_string(env)?;
-                let response = dispatch_tool(engine(), &tool_id, &params_text);
+                let response = dispatch_tool(engine(), &tool_id, &params_text, consent_granted != 0);
                 Ok(env.new_string(response)?.into_raw())
             })
             .resolve::<ThrowRuntimeExAndDefault>()
@@ -136,9 +139,18 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn consent_is_scoped_to_the_current_invocation() {
+        let unapproved = CallOptions::new(Caller::Ui);
+        let approved = CallOptions::new(Caller::Ui).with_consent(Consent::Granted);
+        assert_eq!(unapproved.consent, Consent::NotAsked);
+        assert_eq!(approved.consent, Consent::Granted);
+    }
+
     #[test]
     fn dispatch_returns_the_real_session_status() {
-        let response = dispatch_tool(&test_engine(), "core_session_show", "{}");
+        let response = dispatch_tool(&test_engine(), "core_session_show", "{}", false);
         let value = serde_json::from_str::<Value>(&response).unwrap_or(Value::Null);
         assert_eq!(value["ok"], Value::Bool(true));
         assert_eq!(value["output"]["result"]["open"], Value::Bool(false));
@@ -146,7 +158,7 @@ mod tests {
 
     #[test]
     fn dispatch_reports_malformed_parameters_as_a_structured_error() {
-        let response = dispatch_tool(&test_engine(), "core_session_show", "{");
+        let response = dispatch_tool(&test_engine(), "core_session_show", "{", false);
         let value = serde_json::from_str::<Value>(&response).unwrap_or(Value::Null);
         assert_eq!(value["ok"], Value::Bool(false));
         assert!(
