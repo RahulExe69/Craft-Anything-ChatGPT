@@ -168,6 +168,11 @@ mod tests {
     }
 
     #[test]
+    fn engine_requires_explicit_initialization() {
+        assert!(engine().is_err(), "tool access must wait for app-specific settings");
+    }
+
+    #[test]
     fn android_settings_use_a_private_projects_directory() {
         let root = std::env::temp_dir().join("craft-anything-android-settings-test");
         let path = root.to_string_lossy().into_owned();
@@ -210,7 +215,6 @@ mod tests {
         assert!(includes_open, "the Android catalogue must expose core_target_open");
     }
 
-
     #[test]
     fn catalogue_exposes_input_schemas_and_consent_requirements() {
         let catalog = tool_catalog_json(&test_engine());
@@ -222,7 +226,6 @@ mod tests {
         assert!(items.iter().all(|item| item["requires_consent"].is_boolean()));
         assert!(items.iter().any(|item| item["requires_consent"] == Value::Bool(true)), "the registry should expose at least one consent-gated tool");
     }
-
 
     #[test]
     fn consent_is_scoped_to_the_current_invocation() {
