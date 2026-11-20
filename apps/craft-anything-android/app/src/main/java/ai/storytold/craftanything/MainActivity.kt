@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -595,16 +596,20 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(
                 colorScheme = darkColorScheme(
                     primary = Violet,
+                    secondary = Color(0xFFC6B5FF),
                     background = Ink,
                     surface = Panel,
+                    surfaceVariant = Color(0xFF22212B),
+                    error = Color(0xFFFF8D9C),
                     onBackground = Color(0xFFF5F2FF),
-                    onSurface = Color(0xFFF5F2FF)
+                    onSurface = Color(0xFFF5F2FF),
+                    onSurfaceVariant = Muted
                 )
             ) {
                 Scaffold(
                     containerColor = Ink,
                     bottomBar = {
-                        NavigationBar(containerColor = Panel) {
+                        NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
                             listOf(
                                 Triple("Home", Icons.Rounded.Home, "Home"),
                                 Triple("Projects", Icons.Rounded.FolderOpen, "Projects"),
@@ -616,7 +621,14 @@ class MainActivity : ComponentActivity() {
                                     selected = selected == route,
                                     onClick = { selected = route },
                                     icon = { Icon(icon, contentDescription = label) },
-                                    label = { Text(label) }
+                                    label = { Text(label) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = Violet,
+                                        selectedTextColor = Color(0xFFEAE2FF),
+                                        indicatorColor = Violet.copy(alpha = 0.16f),
+                                        unselectedIconColor = Muted,
+                                        unselectedTextColor = Muted
+                                    )
                                 )
                             }
                         }
