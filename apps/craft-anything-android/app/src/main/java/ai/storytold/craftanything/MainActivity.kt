@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -121,6 +122,7 @@ class MainActivity : ComponentActivity() {
             var projectsJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"projects\":[]}}}") }
             var projectsLoading by remember { mutableStateOf(false) }
             var projectsError by remember { mutableStateOf("") }
+            val projectsListRequestGeneration = remember { AtomicInteger(0) }
             var evidenceJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"records\":[]}}}") }
             var unknownsJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"items\":[]}}}") }
             var evidenceLoading by remember { mutableStateOf(false) }
@@ -128,24 +130,31 @@ class MainActivity : ComponentActivity() {
             var projectDetailsJson by remember { mutableStateOf("") }
             var projectRequestGeneration by remember { mutableStateOf(0) }
             var selectedProjectFolder by remember { mutableStateOf<String?>(null) }
+            var buildStatusJson by remember { mutableStateOf("") }
+            var buildActivityJson by remember { mutableStateOf("") }
+            var buildActivityError by remember { mutableStateOf("") }
+            var buildActivityMessage by remember { mutableStateOf("") }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             var importedTargetPath by remember { mutableStateOf("") }
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val refreshProjects: () -> Unit = {
                 if (nativeReady && coreVersion.startsWith("Rust core")) {
+                    val requestGeneration = projectsListRequestGeneration.incrementAndGet()
+                    projectsLoading = true
+                    projectsError = ""
                     scope.launch {
-                        projectsLoading = true
-                        projectsError = ""
                         val response = withContext(Dispatchers.IO) {
                             runCatching {
                                 requireOkEnvelope(nativeCallTool("project_list", "{}", false), "Couldn't load projects.").toString(2)
                             }
                         }
-                        response.onSuccess { projectsJson = it }.onFailure {
-                            projectsError = it.message ?: "Couldn't load projects."
+                        if (projectsListRequestGeneration.get() == requestGeneration) {
+                            response.onSuccess { projectsJson = it }.onFailure {
+                                projectsError = it.message ?: "Couldn't load projects."
+                            }
+                            projectsLoading = false
                         }
-                        projectsLoading = false
                     }
                 }
             }
@@ -342,7 +351,60 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+            val stopBuild: (String) -> Unit = { projectFolder ->
+                scope.launch {
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val params = JSONObject().put("project", projectFolder).toString()
+                            requireOkEnvelope(nativeCallTool("rebuild_stop", params, false), "Couldn't stop this build.")
+                        }
+                    }
+                    response.onSuccess {
+                        buildActivityMessage = "Stop requested. The builder will keep its work so far."
+                    }.onFailure {
+                        buildActivityMessage = it.message ?: "Couldn't stop this build."
+                    }
+                }
+            }
+
+            LaunchedEffect(selectedProjectFolder) {
+                val projectFolder = selectedProjectFolder ?: return@LaunchedEffect
+                while (true) {
+                    val snapshot = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val params = JSONObject().put("project", projectFolder).toString()
+                            val status = requireOkEnvelope(
+                                nativeCallTool("rebuild_status", params, false),
+                                "Couldn't read build status."
+                            )
+                            val activityParams = JSONObject().put("project", projectFolder).put("limit", 80).toString()
+                            val activity = requireOkEnvelope(
+                                nativeCallTool("rebuild_activity_show", activityParams, false),
+                                "Couldn't read build activity."
+                            )
+                            status to activity
+                        }
+                    }
+                    if (selectedProjectFolder == projectFolder) {
+                        snapshot.onSuccess { (status, activity) ->
+                            buildStatusJson = status.toString(2)
+                            buildActivityJson = activity.toString(2)
+                            buildActivityError = ""
+                        }.onFailure {
+                            buildActivityError = it.message ?: "Couldn't refresh build activity."
+                        }
+                    }
+                    val statusResult = snapshot.getOrNull()?.first
+                        ?.optJSONObject("output")?.optJSONObject("result")
+                    val queued = statusResult?.opt("queued")?.let { it != JSONObject.NULL } == true
+                    if (snapshot.isSuccess && statusResult != null && !statusResult.optBoolean("running") && !queued) {
+                        break
+                    }
+                    delay(3_000)
+                }
+            }
+
+                        val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                 if (uri != null && nativeReady && coreVersion.startsWith("Rust core v")) {
                     scope.launch {
                         targetResult = "Copying file into app storage…"
@@ -579,15 +641,26 @@ class MainActivity : ComponentActivity() {
                                 loading = projectsLoading,
                                 error = projectsError,
                                 detailsJson = projectDetailsJson,
+                                buildStatusJson = buildStatusJson,
+                                activityJson = buildActivityJson,
+                                activityError = buildActivityError,
+                                activityMessage = buildActivityMessage,
+                                onStopBuild = stopBuild,
                                 onRefresh = refreshProjects,
                                 onOpenProject = openProject,
                                 onCloseDetails = {
                                     projectRequestGeneration += 1
                                     selectedProjectFolder = null
                                     projectDetailsJson = ""
+                                    buildStatusJson = ""
+                                    buildActivityJson = ""
+                                    buildActivityError = ""
+                                    buildActivityMessage = ""
                                 },
                                 onAnswer = { projectFolder, requestId, choice, text, allow ->
                                     val requestGeneration = projectRequestGeneration
+                                    val listGenerationAtStart = projectsListRequestGeneration.get()
+                                    val listRequestGeneration = AtomicInteger(-1)
                                     projectsLoading = true
                                     projectsError = ""
                                     scope.launch {
@@ -611,22 +684,35 @@ class MainActivity : ComponentActivity() {
                                                     nativeCallTool("project_show", showParams, false),
                                                     "The answer was saved, but the project couldn't be refreshed."
                                                 )
+                                                val listGeneration = projectsListRequestGeneration.incrementAndGet()
+                                                listRequestGeneration.set(listGeneration)
                                                 val list = requireOkEnvelope(
                                                     nativeCallTool("project_list", "{}", false),
                                                     "The answer was saved, but the project list couldn't be refreshed."
                                                 )
-                                                Pair(detail.toString(2), list.toString(2))
+                                                Triple(detail.toString(2), list.toString(2), listGeneration)
                                             }
                                         }
-                                        if (projectRequestGeneration == requestGeneration && selectedProjectFolder == projectFolder) {
-                                            refreshed.onSuccess {
-                                                projectDetailsJson = it.first
-                                                projectsJson = it.second
-                                            }.onFailure { error ->
+                                        refreshed.onSuccess { (detailJson, listJson, listGeneration) ->
+                                            if (projectsListRequestGeneration.get() == listGeneration) {
+                                                projectsJson = listJson
+                                                projectsLoading = false
+                                            }
+                                            if (projectRequestGeneration == requestGeneration && selectedProjectFolder == projectFolder) {
+                                                projectDetailsJson = detailJson
+                                            }
+                                        }.onFailure { error ->
+                                            if (
+                                                projectsListRequestGeneration.get() == listRequestGeneration.get() ||
+                                                (listRequestGeneration.get() < 0 && projectsListRequestGeneration.get() == listGenerationAtStart)
+                                            ) {
+                                                projectsError = error.message ?: "Couldn't refresh the project list."
+                                                projectsLoading = false
+                                            }
+                                            if (projectRequestGeneration == requestGeneration && selectedProjectFolder == projectFolder) {
                                                 projectsError = error.message ?: "Couldn't send the project answer."
                                             }
                                         }
-                                        projectsLoading = false
                                     }
                                 },
                                 modifier = Modifier.weight(1f)
