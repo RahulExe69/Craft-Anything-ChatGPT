@@ -89,4 +89,101 @@ class ProjectsScreenTest {
         composeRule.onNodeWithText("Nothing here yet").assertIsDisplayed()
         composeRule.onNodeWithText("Check again").assertIsDisplayed()
     }
+    @Test
+    fun showsTheEngineInboxTitleDetailAndChoiceButtons() {
+        val detail = """
+            {
+              "ok": true,
+              "output": {
+                "result": {
+                  "name": "Pocket Notes",
+                  "folder": "/private/projects/pocket-notes",
+                  "request": "A small private notes app",
+                  "status": "building",
+                  "questions": [
+                    {
+                      "id": "ask-123",
+                      "kind": "question",
+                      "title": "Which storage should I use?",
+                      "detail": "This changes how notes are synced.",
+                      "choices": ["Local only", "Cloud sync"],
+                      "allow_text": true
+                    }
+                  ],
+                  "conversation": {"total": 2}
+                }
+              }
+            }
+        """.trimIndent()
+        val answer = AtomicReference<List<String>?>(null)
+        composeRule.setContent {
+            ProjectsScreen(
+                projectsJson = projectResponse,
+                loading = false,
+                error = "",
+                detailsJson = detail,
+                onRefresh = {},
+                onOpenProject = {},
+                onCloseDetails = {},
+                onAnswer = { id, choice, text, allow ->
+                    answer.set(listOf(id, choice.orEmpty(), text.orEmpty(), allow?.toString().orEmpty()))
+                }
+            )
+        }
+
+        composeRule.onNodeWithText("Which storage should I use?").assertIsDisplayed()
+        composeRule.onNodeWithText("This changes how notes are synced.").assertIsDisplayed()
+        composeRule.onNodeWithText("Local only").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf("ask-123", "Local only", "", ""), answer.get())
+        }
+    }
+
+    @Test
+    fun approvalInboxRequestsOfferAllowAndDenyActions() {
+        val detail = """
+            {
+              "ok": true,
+              "output": {
+                "result": {
+                  "name": "Pocket Notes",
+                  "folder": "/private/projects/pocket-notes",
+                  "questions": [
+                    {
+                      "id": "approval-123",
+                      "kind": "approval",
+                      "title": "Run the test command?",
+                      "detail": "The builder wants to run ./gradlew test.",
+                      "choices": [],
+                      "allow_text": false
+                    }
+                  ],
+                  "conversation": {"total": 2}
+                }
+              }
+            }
+        """.trimIndent()
+        val answer = AtomicReference<List<String>?>(null)
+        composeRule.setContent {
+            ProjectsScreen(
+                projectsJson = projectResponse,
+                loading = false,
+                error = "",
+                detailsJson = detail,
+                onRefresh = {},
+                onOpenProject = {},
+                onCloseDetails = {},
+                onAnswer = { id, choice, text, allow ->
+                    answer.set(listOf(id, choice.orEmpty(), text.orEmpty(), allow?.toString().orEmpty()))
+                }
+            )
+        }
+
+        composeRule.onNodeWithText("Run the test command?").assertIsDisplayed()
+        composeRule.onNodeWithText("Allow").performClick()
+        composeRule.runOnIdle {
+            assertEquals(listOf("approval-123", "", "", "true"), answer.get())
+        }
+    }
+
 }
