@@ -395,11 +395,12 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(aiStatusJson) {
                 val aiStatus = parseNativeAiStatus(aiStatusJson)
-                if (selectedAiBackend.isBlank()) {
-                    selectedAiBackend = aiStatus.lead ?: aiStatus.backends.firstOrNull { it.enabled }?.name.orEmpty()
+                val usableBackends = aiStatus.backends.filter { it.enabled }.map { it.name }
+                if (selectedAiBackend !in usableBackends) {
+                    selectedAiBackend = aiStatus.lead?.takeIf { it in usableBackends } ?: usableBackends.firstOrNull().orEmpty()
                 }
-                if (selectedBuildBackend.isBlank()) {
-                    selectedBuildBackend = aiStatus.builder ?: aiStatus.backends.firstOrNull { it.enabled }?.name.orEmpty()
+                if (selectedBuildBackend !in usableBackends) {
+                    selectedBuildBackend = aiStatus.builder?.takeIf { it in usableBackends } ?: usableBackends.firstOrNull().orEmpty()
                 }
             }
 
