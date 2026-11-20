@@ -85,7 +85,7 @@
 **Files:**
 - Modify: `apps/craft-anything-android/app/src/main/java/ai/storytold/craftanything/MainActivity.kt`
 - Create: `apps/craft-anything-android/app/src/main/java/ai/storytold/craftanything/ToolsScreen.kt`
-- Create: `apps/craft-anything-android/app/src/test/java/ai/storytold/craftanything/ToolsScreenTest.kt`
+- Create: `apps/craft-anything-android/app/src/androidTest/java/ai/storytold/craftanything/ToolsScreenTest.kt`
 
 **Interfaces:**
 - Display registered tools from `tool_catalog_json`, grouped by toolset and searchable by id/title/summary.
@@ -93,9 +93,9 @@
 - Display consent-required effects before invocation; never silently auto-approve them.
 
 - [x] **Step 1: Write UI tests** for registry rendering, search filtering, safe-tool invocation and consent-required action gating.
-- [ ] **Step 2: Run UI tests** and inspect the result; a CI instrumentation-test task is not yet configured.
+- [x] **Step 2: Configure emulator instrumentation tests** with the API 35 x86_64 Android Emulator Runner in CI; result inspection is pending.
 - [x] **Step 3: Implement the searchable tool browser** and structured JSON invocation UI. Risk classification and per-invocation approval are supplied by the Rust engine catalogue and forwarded back to `Engine::call`.
-- [ ] **Step 4: Run UI tests** and verify the screen on an Android emulator.
+- [ ] **Step 4: Run UI tests** and verify the screen on an Android emulator; the first configured full pipeline is in progress.
 
 ### Task 5: Add project and evidence workflows
 
@@ -135,6 +135,6 @@
 
 ## Execution Notes
 
-- The current branch contains an initial shell, a testable JNI bridge, bounded SAF import, process-watcher shell selection and an Android CI workflow. Treat all of these as unverified until the tests and CI runs above prove them.
+- The current branch contains a native Compose shell, a testable JNI bridge, bounded SAF import, a searchable tool browser with one-call consent forwarding, process-watcher shell selection and Android CI for host Rust, JVM and emulator tests. The JNI bridge has passed one intermediate host-test run; all later schema/consent changes and end-to-end APK packaging remain subject to the latest CI run.
 - This harness has GitHub repository access but the local clone failed because DNS/network access to github.com was unavailable. Do not claim a build passed until GitHub Actions or a local Android build provides actual logs.
 - Keep work on `feature/android-native-app`; never commit directly to `main`.
