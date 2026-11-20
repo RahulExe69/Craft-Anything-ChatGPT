@@ -116,7 +116,7 @@
 - [x] **Step 4: Add the Compose Projects screen** for project status, waiting questions, overview metrics, and navigation back to the list, with emulator UI tests.
 - [x] **Step 5: Add the Evidence screen** for session records and unknowns, with engine-backed refresh and Compose tests for populated and empty states.
 - [x] **Step 6: Add project inbox response actions** using the engine's actual `Request` schema (`kind`, `title`, `detail`, `choices`, `allow_text`) and `project_inbox_answer`. Questions accept a selected choice or typed reply; approvals expose Allow/Deny only, with no project-wide `always` permission switch.
-- [ ] **Step 7: Run the full bridge and emulator UI suites** on this source revision.
+- [ ] **Step 7: Run the full bridge and emulator UI suites** on this source revision, then verify APK packaging and upload. The last completed run passed Rust and JVM tests but failed emulator startup; the workflow now enables KVM and packages the APK before emulator instrumentation.
 
 ### Task 6: Android platform adapters and AI integration
 
