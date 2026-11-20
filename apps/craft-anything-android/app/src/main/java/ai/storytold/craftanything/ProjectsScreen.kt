@@ -103,6 +103,7 @@ internal fun ProjectsScreen(
     activityError: String = "",
     activityMessage: String = "",
     onStopBuild: (String) -> Unit = {},
+    onAddBuildNote: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val projects = remember(projectsJson) { parseProjectList(projectsJson) }
@@ -162,7 +163,8 @@ internal fun ProjectsScreen(
                 activityJson = activityJson,
                 activityError = activityError,
                 activityMessage = activityMessage,
-                onStopBuild = onStopBuild
+                onStopBuild = onStopBuild,
+                onAddBuildNote = onAddBuildNote
             )
         } else if (projects.isEmpty() && !loading) {
             Card(
@@ -241,7 +243,8 @@ private fun ProjectDetails(
     activityJson: String,
     activityError: String,
     activityMessage: String,
-    onStopBuild: (String) -> Unit
+    onStopBuild: (String) -> Unit,
+    onAddBuildNote: (String, String) -> Unit
 ) {
     val conversation = project.optJSONObject("conversation")
     val questions = project.optJSONArray("questions")
@@ -273,7 +276,8 @@ private fun ProjectDetails(
             activityJson = activityJson,
             error = activityError,
             message = activityMessage,
-            onStopBuild = onStopBuild
+            onStopBuild = onStopBuild,
+            onAddBuildNote = onAddBuildNote
         )
         if (questions != null && questions.length() > 0) {
             Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -295,8 +299,10 @@ private fun BuildActivityPanel(
     activityJson: String,
     error: String,
     message: String,
-    onStopBuild: (String) -> Unit
+    onStopBuild: (String) -> Unit,
+    onAddBuildNote: (String, String) -> Unit
 ) {
+    var note by remember(projectFolder) { mutableStateOf("") }
     val status = remember(statusJson) {
         runCatching {
             JSONObject(statusJson).optJSONObject("output")?.optJSONObject("result")
@@ -344,6 +350,25 @@ private fun BuildActivityPanel(
             }
             if (error.isNotBlank()) {
                 Text(error, color = Color(0xFFFFA9B8), style = MaterialTheme.typography.bodySmall)
+            }
+            if (running) {
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Tell the builder what to change") },
+                    placeholder = { Text("Add a page, fix the layout, explain a requirement…") },
+                    minLines = 2,
+                    maxLines = 4
+                )
+                Button(
+                    onClick = {
+                        onAddBuildNote(projectFolder, note.trim())
+                        note = ""
+                    },
+                    enabled = note.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Send direction") }
             }
             Text("What the builder is doing", fontWeight = FontWeight.SemiBold)
             if (lines.isEmpty()) {
