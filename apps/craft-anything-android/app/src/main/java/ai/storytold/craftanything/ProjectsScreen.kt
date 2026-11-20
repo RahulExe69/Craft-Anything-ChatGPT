@@ -12,15 +12,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -73,6 +79,7 @@ internal fun ProjectsScreen(
     onRefresh: () -> Unit,
     onOpenProject: (String) -> Unit,
     onCloseDetails: () -> Unit,
+    onAnswer: (projectFolder: String, id: String, choice: String?, text: String?, allow: Boolean?) -> Unit = { _, _, _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val projects = remember(projectsJson) { parseProjectList(projectsJson) }
@@ -123,7 +130,7 @@ internal fun ProjectsScreen(
         }
 
         if (detailResult != null) {
-            ProjectDetails(detailResult)
+            ProjectDetails(detailResult, onAnswer)
         } else if (projects.isEmpty() && !loading) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -194,18 +201,22 @@ internal fun ProjectsScreen(
 }
 
 @Composable
-private fun ProjectDetails(project: JSONObject) {
+private fun ProjectDetails(
+    project: JSONObject,
+    onAnswer: (projectFolder: String, id: String, choice: String?, text: String?, allow: Boolean?) -> Unit
+) {
     val conversation = project.optJSONObject("conversation")
     val questions = project.optJSONArray("questions")
+    val folder = project.optString("folder")
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D))) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(project.optString("status_label", project.optString("status")), color = Color(0xFF9B7BFF), fontWeight = FontWeight.Bold)
                 Text(project.optString("request"), style = MaterialTheme.typography.bodyMedium)
-                Text(project.optString("folder"), color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+                Text(folder, color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
                 val stack = project.opt("stack")?.takeUnless { it == JSONObject.NULL }?.toString().orEmpty()
                 if (stack.isNotBlank() && stack != "[]") {
                     Text("Stack: $stack", color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
@@ -220,19 +231,79 @@ private fun ProjectDetails(project: JSONObject) {
         if (questions != null && questions.length() > 0) {
             Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             for (index in 0 until questions.length()) {
-                val question = questions.optJSONObject(index) ?: continue
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2C261C))) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text(question.optString("question"), color = Color(0xFFFFD99A))
-                        val choices = question.optJSONArray("choices")
-                        if (choices != null) {
-                            Text(
-                                (0 until choices.length()).joinToString(" · ") { choices.optString(it) },
-                                color = Color(0xFFB9B5C6),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
+                val request = questions.optJSONObject(index) ?: continue
+                ProjectInboxCard(request, folder, onAnswer)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectInboxCard(
+    request: JSONObject,
+    projectFolder: String,
+    onAnswer: (projectFolder: String, id: String, choice: String?, text: String?, allow: Boolean?) -> Unit
+) {
+    val id = request.optString("id")
+    val kind = request.optString("kind", "question")
+    val choices = request.optJSONArray("choices") ?: JSONArray()
+    var typedAnswer by remember(id) { mutableStateOf("") }
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (kind == "approval") Color(0xFF2C261C) else Color(0xFF20202A)
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                if (kind == "approval") "Approval request" else "Question",
+                color = if (kind == "approval") Color(0xFFFFD99A) else Color(0xFF9B7BFF),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(request.optString("title", "Project request"), fontWeight = FontWeight.SemiBold)
+            val detail = request.optString("detail")
+            if (detail.isNotBlank()) {
+                Text(detail, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+            }
+
+            if (kind == "approval") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = { onAnswer(projectFolder, id, null, null, false) }
+                    ) { Text("Deny") }
+                    Button(
+                        modifier = Modifier.weight(1f),
+                        onClick = { onAnswer(projectFolder, id, null, null, true) }
+                    ) { Text("Allow") }
+                }
+            } else {
+                for (choiceIndex in 0 until choices.length()) {
+                    val choice = choices.optString(choiceIndex)
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onAnswer(projectFolder, id, choice, null, null) }
+                    ) { Text(choice) }
+                }
+                if (request.optBoolean("allow_text")) {
+                    OutlinedTextField(
+                        value = typedAnswer,
+                        onValueChange = { typedAnswer = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Your answer") },
+                        minLines = 2,
+                        maxLines = 4
+                    )
+                    Button(
+                        onClick = { onAnswer(projectFolder, id, null, typedAnswer.trim(), null) },
+                        enabled = typedAnswer.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Send answer") }
                 }
             }
         }
