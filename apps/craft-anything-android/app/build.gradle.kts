@@ -8,6 +8,7 @@ plugins {
 
 val rustCoreDir = layout.projectDirectory.dir("../rust-core")
 val rustJniLibs = layout.projectDirectory.dir("src/main/jniLibs")
+val workspaceRoot = rootProject.projectDir.resolve("../..")
 
 android {
     namespace = "ai.storytold.craftanything"
@@ -68,6 +69,13 @@ val buildRustAndroid by tasks.registering(Exec::class) {
         "--manifest-path", rustCoreDir.file("Cargo.toml").asFile.absolutePath
     )
     inputs.dir(rustCoreDir)
+    inputs.files(
+        workspaceRoot.resolve("Cargo.toml"),
+        workspaceRoot.resolve("Cargo.lock"),
+        fileTree(workspaceRoot.resolve("crates")) {
+            include("**/*.rs", "**/Cargo.toml")
+        }
+    )
     outputs.dir(rustJniLibs)
 }
 
