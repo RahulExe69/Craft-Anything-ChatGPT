@@ -1,6 +1,7 @@
 package ai.storytold.craftanything
 
 import java.io.ByteArrayInputStream
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
@@ -75,6 +76,27 @@ class FileImportTest {
 
         assertTrue(error.message.orEmpty().contains("maximum"))
         assertFalse("partial imports must not be left behind", destination.exists())
+    }
+
+    @Test
+    fun closesTheProviderStreamWhenPrivateDirectoryCreationFails() {
+        val blocker = temporaryFolder.newFile("not-a-directory")
+        val destination = File(File(blocker, "nested"), "target.bin")
+        var closed = false
+        val source = object : ByteArrayInputStream(byteArrayOf(1, 2, 3)) {
+            override fun close() {
+                closed = true
+                super.close()
+            }
+        }
+
+        val error = org.junit.Assert.assertThrows(IOException::class.java) {
+            FileImport.copyBounded(source, destination, maxBytes = 16)
+        }
+
+        assertTrue(error.message.orEmpty().contains("private import directory"))
+        assertTrue("the provider stream must close even when directory creation fails", closed)
+        assertFalse(destination.exists())
     }
 
     @Test
