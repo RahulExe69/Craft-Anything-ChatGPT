@@ -66,6 +66,7 @@ Bring Craft Anything to Android as a native mobile app, reusing the existing Rus
 - [x] Establish the native Compose app shell, JNI bridge, Storage Access Framework importer, app-private project/config directories and Android CI APK workflow — claimed: RahulExe69, branch feature/android-native-app
 - [x] Register the shared AI rebuild toolset in the Android engine and add a guided `rebuild_start` workflow with explicit user confirmation.
 - [x] Add Android AI provider configuration, app-private key storage, streamed AI conversation, launcher assets and ABI-split minified release previews.
+- [x] Add a prompt-first creator workspace with starter prompts, reference attachments, modern project activity and a unified AI composer.
 - [ ] Verify this revision's Rust, Kotlin, Compose and release builds in CI; measure the actual ARM64 APK size and fix any regressions.
 - [ ] Add durable foreground rebuild execution, progress notifications and resume/recovery after Android kills the process.
 - [ ] Add project source browsing, export/share and safe hand-off to external editors or storage providers.
