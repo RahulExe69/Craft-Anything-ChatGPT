@@ -1,6 +1,5 @@
 package ai.storytold.craftanything
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -56,7 +55,7 @@ class ToolsScreenTest {
     @Test
     fun searchFiltersByToolNameAndHidesNonMatches() {
         composeRule.setContent {
-            ToolsScreen(catalogue, "Rust core v0.6.1", "", { _, _ -> })
+            ToolsScreen(catalogue, "Rust core v0.6.1", "", { _, _, _ -> })
         }
 
         composeRule.onNodeWithText("Search tools").performTextInput("Capture")
