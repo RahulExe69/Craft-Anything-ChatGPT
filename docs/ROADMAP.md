@@ -68,7 +68,7 @@ Bring Craft Anything to Android as a native mobile app, reusing the existing Rus
 - [x] Add Android AI provider configuration, app-private key storage, streamed AI conversation, launcher assets and ABI-split minified release previews.
 - [x] Add a prompt-first creator workspace with starter prompts, reference attachments, modern project activity and a unified AI composer.
 - [ ] Verify this revision's Rust, Kotlin, Compose and release builds in CI; measure the actual ARM64 APK size and fix any regressions.
-- [ ] Add durable foreground rebuild execution, progress notifications and resume/recovery after Android kills the process.
+- [ ] Add durable foreground rebuild execution, progress notifications and resume/recovery after Android kills the process. — claimed: RahulExe69, branch feature/android-native-app
 - [ ] Add project source browsing, export/share and safe hand-off to external editors or storage providers.
 - [ ] Implement Android-native or remote adapters for desktop-only CLI, browser, package-manager, compiler and build-validation workflows; document unsupported capabilities.
 - [ ] Complete an end-to-end feature-parity matrix and verify representative website, Android-app and game rebuilds on real Android hardware.
