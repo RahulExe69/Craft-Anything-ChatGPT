@@ -1361,6 +1361,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-anything-android-bridge"
+version = "0.6.1"
+dependencies = [
+ "craft-anything-engine",
+ "craft-anything-evidence",
+ "jni",
+ "log",
+ "serde_json",
+]
+
+[[package]]
 name = "craft-anything-cli"
 version = "0.6.1"
 dependencies = [
