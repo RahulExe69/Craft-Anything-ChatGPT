@@ -1,0 +1,182 @@
+package ai.storytold.craftanything
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import org.json.JSONObject
+
+@Composable
+internal fun BuildScreen(
+    backends: List<NativeAiBackend>,
+    selectedBackend: String,
+    onBackendSelected: (String) -> Unit,
+    starting: Boolean,
+    feedback: String,
+    onStartBuild: (String) -> Unit,
+    onOpenProjects: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var request by remember { mutableStateOf("") }
+    var target by remember { mutableStateOf("") }
+    var generateAssets by remember { mutableStateOf(false) }
+    var backendMenu by remember { mutableStateOf(false) }
+    var confirmParams by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("Build something", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "Describe what you want. Craft Anything will study your reference, create a project, and work through the build with you.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Your idea", fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = request,
+                    onValueChange = { request = it },
+                    placeholder = { Text("Example: Build a polished offline-first notes app with folders, search and a dark theme.") },
+                    label = { Text("What should it make?") },
+                    minLines = 4,
+                    maxLines = 7,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = target,
+                    onValueChange = { target = it },
+                    label = { Text("Reference URL or local path (optional)") },
+                    placeholder = { Text("https://example.com or /storage/emulated/0/…") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Leave the reference empty to start from your description alone. A URL lets the builder study a website; a local path is for a file or app you can access.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Build settings", fontWeight = FontWeight.SemiBold)
+                Text("Builder model", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { backendMenu = true },
+                        enabled = backends.any { it.enabled },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(backends.firstOrNull { it.name == selectedBackend }?.name ?: "Use default builder")
+                    }
+                    DropdownMenu(expanded = backendMenu, onDismissRequest = { backendMenu = false }) {
+                        backends.filter { it.enabled }.forEach { backend ->
+                            DropdownMenuItem(
+                                text = { Text(backend.name) },
+                                onClick = {
+                                    onBackendSelected(backend.name)
+                                    backendMenu = false
+                                },
+                            )
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = generateAssets, onCheckedChange = { generateAssets = it })
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Allow generated pictures and 3D assets")
+                        Text(
+                            "Optional. This can use a configured asset-provider key and the project's asset budget.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (backends.none { it.enabled }) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2118)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("Connect a builder first", fontWeight = FontWeight.SemiBold)
+                    Text("Open Settings and add an API provider, then assign it to the Builder role.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (feedback.isNotBlank()) {
+            Text(feedback, color = MaterialTheme.colorScheme.primary)
+        }
+
+        Button(
+            onClick = {
+                val params = JSONObject()
+                    .put("request", request.trim())
+                    .put("target", target.trim().ifBlank { "-" })
+                    .put("rounds", 2)
+                    .put("generate_assets", generateAssets)
+                if (selectedBackend.isNotBlank()) params.put("backend", selectedBackend)
+                confirmParams = params.toString()
+            },
+            enabled = request.isNotBlank() && !starting && backends.any { it.enabled },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (starting) "Starting build…" else "Review and start build")
+        }
+        OutlinedButton(onClick = onOpenProjects, modifier = Modifier.fillMaxWidth()) {
+            Text("View my projects")
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+
+    confirmParams?.let { params ->
+        AlertDialog(
+            onDismissRequest = { confirmParams = null },
+            title = { Text("Start this build?") },
+            text = {
+                Text(
+                    "Craft Anything will use the selected AI provider, create project files, access the reference you supplied, and may run build commands. Only continue if you trust the target and the project request.",
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    confirmParams = null
+                    onStartBuild(params)
+                }) { Text("Allow and build") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmParams = null }) { Text("Cancel") }
+            },
+        )
+    }
+}
