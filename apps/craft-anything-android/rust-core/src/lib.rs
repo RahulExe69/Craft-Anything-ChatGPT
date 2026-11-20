@@ -165,10 +165,11 @@ mod tests {
     fn android_settings_use_a_private_projects_directory() {
         let root = std::env::temp_dir().join("craft-anything-android-settings-test");
         let path = root.to_string_lossy().into_owned();
-        let settings = settings_for_app_data_dir(&path).unwrap_or_else(|error| {
-            panic!("expected a valid temporary app directory: {error}")
-        });
-        assert_eq!(settings.projects_dir, Some(root.join("projects")));
+        let settings = settings_for_app_data_dir(&path);
+        assert!(settings.is_ok(), "a valid app directory should configure successfully");
+        if let Ok(settings) = settings {
+            assert_eq!(settings.projects_dir, Some(root.join("projects")));
+        }
         let _ = std::fs::remove_dir_all(root);
     }
 
