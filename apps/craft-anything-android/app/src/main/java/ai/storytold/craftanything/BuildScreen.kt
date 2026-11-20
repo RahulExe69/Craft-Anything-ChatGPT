@@ -41,20 +41,19 @@ internal fun BuildScreen(
     starting: Boolean,
     feedback: String,
     importedTargetPath: String,
+    importedTargetFolder: String,
     onChooseTarget: () -> Unit,
     onStartBuild: (String) -> Unit,
     onOpenProjects: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var request by remember { mutableStateOf("") }
-    var target by remember { mutableStateOf(importedTargetPath) }
+    var referenceUrl by remember { mutableStateOf("") }
+    var buildWith by remember { mutableStateOf("") }
     var generateAssets by remember { mutableStateOf(false) }
     var backendMenu by remember { mutableStateOf(false) }
     var confirmParams by remember { mutableStateOf<String?>(null) }
 
-    androidx.compose.runtime.LaunchedEffect(importedTargetPath) {
-        if (importedTargetPath.isNotBlank()) target = importedTargetPath
-    }
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -79,18 +78,27 @@ internal fun BuildScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
-                    value = target,
-                    onValueChange = { target = it },
-                    label = { Text("Reference URL or imported local file (optional)") },
-                    placeholder = { Text("https://example.com or import a file below") },
+                    value = referenceUrl,
+                    onValueChange = { referenceUrl = it },
+                    label = { Text("Reference website (optional)") },
+                    placeholder = { Text("https://example.com") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedButton(onClick = onChooseTarget, modifier = Modifier.fillMaxWidth()) {
-                    Text("Import a local reference file")
+                    Text(if (importedTargetPath.isNotBlank()) "Replace imported reference file" else "Import a local reference file")
+                }
+                if (importedTargetPath.isNotBlank()) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF20202A)), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Imported reference", fontWeight = FontWeight.SemiBold)
+                            Text(importedTargetPath.substringAfterLast('/'), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("The builder will use this file's private source folder.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
                 Text(
-                    "Leave the reference empty to start from your description alone. URLs let the builder study a website. Imported files are copied into this app's private storage before the builder reads them.",
+                    "Leave the website empty to start from your description alone. Imported files are copied into an isolated app-private folder before the builder reads them.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -101,6 +109,14 @@ internal fun BuildScreen(
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Build settings", fontWeight = FontWeight.SemiBold)
                 Text("Builder model", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = buildWith,
+                    onValueChange = { buildWith = it },
+                    label = { Text("Preferred framework or engine (optional)") },
+                    placeholder = { Text("Godot 4, Unity, React, etc.") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = { backendMenu = true },
@@ -149,11 +165,24 @@ internal fun BuildScreen(
 
         Button(
             onClick = {
+                val fullRequest = buildString {
+                    append(request.trim())
+                    if (referenceUrl.isNotBlank()) {
+                        append("\\n\\nReference website to study: ")
+                        append(referenceUrl.trim())
+                    }
+                    if (importedTargetPath.isNotBlank()) {
+                        append("\\n\\nUse the imported reference file as source material: ")
+                        append(importedTargetPath)
+                    }
+                }
                 val params = JSONObject()
-                    .put("request", request.trim())
-                    .put("target", target.trim().ifBlank { "-" })
+                    .put("request", fullRequest)
+                    .put("resume", false)
                     .put("rounds", 2)
                     .put("generate_assets", generateAssets)
+                if (importedTargetFolder.isNotBlank()) params.put("project_folder", importedTargetFolder)
+                if (buildWith.isNotBlank()) params.put("build_with", buildWith.trim())
                 if (selectedBackend.isNotBlank()) params.put("backend", selectedBackend)
                 confirmParams = params.toString()
             },
