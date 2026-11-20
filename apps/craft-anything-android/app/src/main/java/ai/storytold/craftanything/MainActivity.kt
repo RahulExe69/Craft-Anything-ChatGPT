@@ -203,6 +203,10 @@ class MainActivity : ComponentActivity() {
                                     "The Rust engine couldn't open this file."
                                 )
                                     val target = payload.optJSONObject("output")?.optJSONObject("result")
+                                    val enginePath = target?.optString("path")?.takeIf { it.isNotBlank() }
+                                    if (enginePath != null && File(enginePath).absolutePath != copy.absolutePath) {
+                                        copy.delete()
+                                    }
                                     val title = target?.optString("name")?.takeIf { it.isNotBlank() } ?: displayName
                                     val kind = target?.optString("kind")?.takeIf { it.isNotBlank() } ?: "target"
                                     "Opened $title · $kind · ${formatByteCount(copiedBytes)}"
