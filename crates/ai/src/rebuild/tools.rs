@@ -310,7 +310,11 @@ fn rebuild_question_ask(ctx: &mut Ctx<'_>, params: Value) -> Result<ToolOutput, 
     let mut settings = ctx.session.settings.clone();
     settings.deep_mode = !ctx.session.clean_room();
     let answered =
-        super::question::ask(&AiHub::new(engine), &settings, Some(crate::failure_log::dir_in(&ctx.session.config_dir())), &ws, &p.question, &ctx.cancel)?;
+        {
+            let config_dir = ctx.session.config_dir();
+            let hub = AiHub::with_stores(engine, config_dir.join("config.toml"), crate::KeyStore::at_config_dir(&config_dir));
+            super::question::ask(&hub, &settings, Some(crate::failure_log::dir_in(&config_dir)), &ws, &p.question, &ctx.cancel)?
+        };
     let question = p.question.trim();
     let from_session = answered.from == super::question::AnsweredFrom::BuildersSession;
     let asked = AskedQuestion {
@@ -442,7 +446,8 @@ fn rebuild_start(ctx: &mut Ctx<'_>, params: Value) -> Result<ToolOutput, ToolErr
     };
     // A tool runs with the session locked, so the hub reads the saved file: use this session's
     // config file (the person's own in the app), not the machine's default one.
-    let hub = AiHub::with_stores(engine, ctx.session.config_dir().join("config.toml"), crate::KeyStore::system());
+    let config_dir = ctx.session.config_dir();
+    let hub = AiHub::with_stores(engine, config_dir.join("config.toml"), crate::KeyStore::at_config_dir(&config_dir));
     let mut out = match set.start(&hub, ws, opts)? {
         Started::Running => json!({"project": root.display().to_string(), "started": true}),
         Started::Queued { position } => {
