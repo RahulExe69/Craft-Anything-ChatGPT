@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,6 +108,17 @@ internal fun ProjectsScreen(
     activityMessage: String = "",
     onStopBuild: (String) -> Unit = {},
     onAddBuildNote: (String, String) -> Unit = { _, _ -> },
+    filesJson: String = "",
+    selectedFileJson: String = "",
+    filesLoading: Boolean = false,
+    filesError: String = "",
+    previewUrl: String = "",
+    previewLoading: Boolean = false,
+    previewError: String = "",
+    onRefreshFiles: (String, String) -> Unit = { _, _ -> },
+    onOpenProjectFile: (String, String, String) -> Unit = { _, _, _ -> },
+    onCloseProjectFile: () -> Unit = {},
+    onStartProjectPreview: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val projects = remember(projectsJson) { parseProjectList(projectsJson) }
@@ -175,7 +187,18 @@ internal fun ProjectsScreen(
                 activityError = activityError,
                 activityMessage = activityMessage,
                 onStopBuild = onStopBuild,
-                onAddBuildNote = onAddBuildNote
+                onAddBuildNote = onAddBuildNote,
+                filesJson = filesJson,
+                selectedFileJson = selectedFileJson,
+                filesLoading = filesLoading,
+                filesError = filesError,
+                previewUrl = previewUrl,
+                previewLoading = previewLoading,
+                previewError = previewError,
+                onRefreshFiles = onRefreshFiles,
+                onOpenProjectFile = onOpenProjectFile,
+                onCloseProjectFile = onCloseProjectFile,
+                onStartProjectPreview = onStartProjectPreview
             )
         } else if (projects.isEmpty() && !loading) {
             Card(
@@ -262,11 +285,32 @@ private fun ProjectDetails(
     activityError: String,
     activityMessage: String,
     onStopBuild: (String) -> Unit,
-    onAddBuildNote: (String, String) -> Unit
+    onAddBuildNote: (String, String) -> Unit,
+    filesJson: String,
+    selectedFileJson: String,
+    filesLoading: Boolean,
+    filesError: String,
+    previewUrl: String,
+    previewLoading: Boolean,
+    previewError: String,
+    onRefreshFiles: (String, String) -> Unit,
+    onOpenProjectFile: (String, String, String) -> Unit,
+    onCloseProjectFile: () -> Unit,
+    onStartProjectPreview: (String) -> Unit
 ) {
     val conversation = project.optJSONObject("conversation")
     val questions = project.optJSONArray("questions")
     val folder = project.optString("folder")
+    val appFolder = project.optString("app_folder")
+    var workspaceTab by remember(folder) { mutableStateOf("Overview") }
+
+    LaunchedEffect(workspaceTab, folder, appFolder) {
+        when (workspaceTab) {
+            "Files" -> onRefreshFiles(folder, appFolder)
+            "Preview" -> if (previewUrl.isBlank() && !previewLoading) onStartProjectPreview(folder)
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -287,17 +331,92 @@ private fun ProjectDetails(
             MetricCard("Conversation", (conversation?.optInt("total") ?: 0).toString(), Modifier.weight(1f))
             MetricCard("Waiting", project.optInt("waiting").toString(), Modifier.weight(1f))
         }
-        BuildActivityPanel(
-            projectFolder = folder,
-            fallbackStatus = project.optString("status_label", project.optString("status")),
-            statusJson = buildStatusJson,
-            activityJson = activityJson,
-            error = activityError,
-            message = activityMessage,
-            onStopBuild = onStopBuild,
-            onAddBuildNote = onAddBuildNote
-        )
-        if (questions != null && questions.length() > 0) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            listOf("Overview", "Preview", "Files", "Activity").forEach { tab ->
+                Card(
+                    modifier = Modifier.weight(1f).clickable { workspaceTab = tab },
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (workspaceTab == tab) Color(0xFF30254A) else Color(0xFF17171F)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        tab,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        color = if (workspaceTab == tab) Color(0xFFE9DFFF) else Color(0xFF9A97A8),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        fontWeight = if (workspaceTab == tab) FontWeight.SemiBold else FontWeight.Normal,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+
+        when (workspaceTab) {
+            "Overview" -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MetricCard("Questions", (questions?.length() ?: 0).toString(), Modifier.weight(1f))
+                    MetricCard("Conversation", (conversation?.optInt("total") ?: 0).toString(), Modifier.weight(1f))
+                    MetricCard("Waiting", project.optInt("waiting").toString(), Modifier.weight(1f))
+                }
+                if (questions != null && questions.length() > 0) {
+                    Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    for (index in 0 until questions.length()) {
+                        val request = questions.optJSONObject(index) ?: continue
+                        key(folder, request.optString("id")) {
+                            ProjectInboxCard(request, folder, onAnswer)
+                        }
+                    }
+                } else {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Project overview", fontWeight = FontWeight.SemiBold)
+                            Text("Your build, files, preview and activity now have their own workspace tabs.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                BuildActivityPanel(
+                    projectFolder = folder,
+                    fallbackStatus = project.optString("status_label", project.optString("status")),
+                    statusJson = buildStatusJson,
+                    activityJson = activityJson,
+                    error = activityError,
+                    message = activityMessage,
+                    onStopBuild = onStopBuild,
+                    onAddBuildNote = onAddBuildNote
+                )
+            }
+            "Preview" -> ProjectPreviewPanel(
+                url = previewUrl,
+                loading = previewLoading,
+                error = previewError,
+                onStart = { onStartProjectPreview(folder) },
+                onReload = {}
+            )
+            "Files" -> ProjectFilesPanel(
+                filesJson = filesJson,
+                selectedFileJson = selectedFileJson,
+                loading = filesLoading,
+                error = filesError,
+                onRefresh = { onRefreshFiles(folder, appFolder) },
+                onOpenFile = { relativePath -> onOpenProjectFile(folder, appFolder, relativePath) },
+                onCloseFile = onCloseProjectFile
+            )
+            "Activity" -> BuildActivityPanel(
+                projectFolder = folder,
+                fallbackStatus = project.optString("status_label", project.optString("status")),
+                statusJson = buildStatusJson,
+                activityJson = activityJson,
+                error = activityError,
+                message = activityMessage,
+                onStopBuild = onStopBuild,
+                onAddBuildNote = onAddBuildNote
+            )
+        }
+        if (workspaceTab != "Overview" && questions != null && questions.length() > 0) {
             Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             for (index in 0 until questions.length()) {
                 val request = questions.optJSONObject(index) ?: continue
@@ -306,6 +425,7 @@ private fun ProjectDetails(
                 }
             }
         }
+
     }
 }
 
