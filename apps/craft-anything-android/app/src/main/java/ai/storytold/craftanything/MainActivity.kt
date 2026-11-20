@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val refreshProjects: () -> Unit = {
-                if (nativeReady) {
+                if (nativeReady && coreVersion.startsWith("Rust core")) {
                     scope.launch {
                         projectsLoading = true
                         projectsError = ""
