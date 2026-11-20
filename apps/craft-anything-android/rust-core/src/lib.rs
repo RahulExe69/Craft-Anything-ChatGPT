@@ -2,7 +2,7 @@
 //! permissions; the Rust engine remains the source of truth for tools and evidence.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
-use craft_anything_engine::{Engine, Session, Settings};
+use craft_anything_engine::{CallOptions, Caller, Engine, Session, Settings};
 use jni::objects::{JClass, JString};
 use jni::sys::jstring;
 use jni::JNIEnv;
@@ -54,5 +54,25 @@ pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeToolCa
         log::error!("couldn't serialize the Android tool catalog: {error}");
         "[]".to_string()
     });
+    into_java_string(&mut env, json)
+}
+
+/// Dispatch one registered engine tool. The caller must run this off the Android UI thread.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeCallTool(
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    tool_id: JString<'_>,
+    params_json: JString<'_>,
+) -> jstring {
+    let result = (|| -> Result<String, String> {
+        let tool_id = env.get_string(&tool_id).map_err(|error| error.to_string())?.to_string_lossy().into_owned();
+        let params_text = env.get_string(&params_json).map_err(|error| error.to_string())?.to_string_lossy().into_owned();
+        let params: serde_json::Value = serde_json::from_str(&params_text).map_err(|error| format!("Invalid tool parameters: {error}"))?;
+        let output = engine().call(&tool_id, params, CallOptions::new(Caller::Ui)).map_err(|error| error.message)?;
+        serde_json::to_string(&serde_json::json!({"ok": true, "output": output.to_json()}))
+            .map_err(|error| format!("Couldn't encode tool result: {error}"))
+    })();
+    let json = result.unwrap_or_else(|message| serde_json::json!({"ok": false, "error": message}).to_string());
     into_java_string(&mut env, json)
 }
