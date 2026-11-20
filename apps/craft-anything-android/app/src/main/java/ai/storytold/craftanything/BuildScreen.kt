@@ -168,11 +168,11 @@ internal fun BuildScreen(
                 val fullRequest = buildString {
                     append(request.trim())
                     if (referenceUrl.isNotBlank()) {
-                        append("\\n\\nReference website to study: ")
+                        append("\n\nReference website to study: ")
                         append(referenceUrl.trim())
                     }
                     if (importedTargetPath.isNotBlank()) {
-                        append("\\n\\nUse the imported reference file as source material: ")
+                        append("\n\nUse the imported reference file as source material: ")
                         append(importedTargetPath)
                     }
                 }
@@ -181,7 +181,10 @@ internal fun BuildScreen(
                     .put("resume", false)
                     .put("rounds", 2)
                     .put("generate_assets", generateAssets)
-                if (importedTargetFolder.isNotBlank()) params.put("project_folder", importedTargetFolder)
+                if (importedTargetFolder.isNotBlank()) {
+                    params.put("project_folder", importedTargetFolder)
+                    params.put("existing", "start_from")
+                }
                 if (buildWith.isNotBlank()) params.put("build_with", buildWith.trim())
                 if (selectedBackend.isNotBlank()) params.put("backend", selectedBackend)
                 confirmParams = params.toString()
