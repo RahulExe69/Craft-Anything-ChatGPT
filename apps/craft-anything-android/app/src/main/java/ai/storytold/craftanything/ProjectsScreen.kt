@@ -326,11 +326,6 @@ private fun ProjectDetails(
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MetricCard("Questions", (questions?.length() ?: 0).toString(), Modifier.weight(1f))
-            MetricCard("Conversation", (conversation?.optInt("total") ?: 0).toString(), Modifier.weight(1f))
-            MetricCard("Waiting", project.optInt("waiting").toString(), Modifier.weight(1f))
-        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(5.dp)
