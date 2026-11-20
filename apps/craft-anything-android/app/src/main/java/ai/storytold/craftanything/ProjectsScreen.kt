@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -26,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -92,6 +94,123 @@ internal fun parseProjectList(response: String): List<NativeProject> {
     }.getOrDefault(emptyList())
 }
 
+
+internal data class ProjectConversationEntry(val role: String, val text: String, val user: Boolean = false, val streaming: Boolean = false, val error: Boolean = false)
+
+internal fun parseProjectConversation(conversation: JSONObject?): List<ProjectConversationEntry> {
+    val items = conversation?.optJSONArray("items") ?: return emptyList()
+    return buildList {
+        for (i in 0 until items.length()) {
+            val item = items.optJSONObject(i) ?: continue
+            val keys = item.keys()
+            if (!keys.hasNext()) continue
+            val kind = keys.next()
+            when (kind) {
+                "User" -> {
+                    val value = item.opt(kind)
+                    val text = if (value is JSONObject) value.optString("text") else value?.takeIf { it != JSONObject.NULL }?.toString().orEmpty()
+                    val pictures = (value as? JSONObject)?.optJSONArray("pictures")?.length() ?: 0
+                    add(ProjectConversationEntry("You", text.ifBlank { if (pictures > 0) "Shared " + pictures + " reference image(s)" else "" }, user = true))
+                }
+                "Agent" -> {
+                    val value = item.optJSONObject(kind) ?: continue
+                    if (value.optString("text").isNotBlank()) add(ProjectConversationEntry("Craft Anything", value.optString("text"), streaming = value.optBoolean("streaming")))
+                }
+                "Step" -> {
+                    val value = item.optJSONObject(kind) ?: continue
+                    add(ProjectConversationEntry(value.optString("step").ifBlank { "Builder update" }, value.optString("text")))
+                }
+                "Plan" -> {
+                    val steps = item.optJSONArray(kind) ?: continue
+                    val labels = buildList {
+                        for (j in 0 until steps.length()) {
+                            val step = steps.optJSONObject(j) ?: continue
+                            val mark = when (step.optString("status")) { "Done" -> "✓"; "Doing" -> "◉"; "Stopped" -> "Ⅱ"; else -> "○" }
+                            if (step.optString("text").isNotBlank()) add(mark + " " + step.optString("text"))
+                        }
+                    }
+                    if (labels.isNotEmpty()) add(ProjectConversationEntry("Builder plan", labels.joinToString("\n")))
+                }
+                "Work" -> {
+                    val value = item.optJSONObject(kind) ?: continue
+                    val count = value.optJSONArray("tools")?.length() ?: 0
+                    add(ProjectConversationEntry("Work update", "Used " + count + " engine tool(s)."))
+                }
+                "Ask" -> {
+                    val value = item.optJSONObject(kind) ?: continue
+                    val request = value.optJSONObject("request")
+                    val answer = value.optString("answer").takeUnless { it == "null" } ?: "Waiting for your answer"
+                    add(ProjectConversationEntry(request?.optString("title").orEmpty().ifBlank { "Builder question" }, answer))
+                }
+                "Check" -> add(ProjectConversationEntry("Build check", "The builder saved a verification result."))
+                "Error" -> {
+                    val value = item.optJSONObject(kind) ?: continue
+                    add(ProjectConversationEntry("Needs attention", value.optString("message"), error = true))
+                }
+                "Paused" -> add(ProjectConversationEntry("Build paused", "The current work has been kept."))
+            }
+        }
+    }.filter { it.text.isNotBlank() }
+}
+
+@Composable
+private fun ProjectConversationPanel(
+    projectFolder: String,
+    conversation: JSONObject?,
+    statusJson: String,
+    message: String,
+    onAddBuildNote: (String, String) -> Unit,
+    onFollowUp: (String, String) -> Unit
+) {
+    val entries = remember(conversation?.toString()) { parseProjectConversation(conversation) }
+    val status = remember(statusJson) { runCatching { JSONObject(statusJson).optJSONObject("output")?.optJSONObject("result") }.getOrNull() }
+    val running = status?.optBoolean("running") == true
+    val queued = status?.opt("queued")?.takeUnless { it == JSONObject.NULL }?.toString()
+    var draft by remember(projectFolder) { mutableStateOf("") }
+    var confirming by remember(projectFolder) { mutableStateOf(false) }
+    if (confirming) AlertDialog(
+        onDismissRequest = { confirming = false },
+        title = { Text("Start follow-up build?") },
+        text = { Text("Craft Anything will continue this project with your new instruction. The builder may edit files and run commands under your configured approval settings.") },
+        confirmButton = { Button(onClick = { val request = draft.trim(); confirming = false; draft = ""; onFollowUp(projectFolder, request) }) { Text("Start build") } },
+        dismissButton = { TextButton(onClick = { confirming = false }) { Text("Cancel") } }
+    )
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF171720)), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Builder conversation", fontWeight = FontWeight.Bold)
+                    Text(entries.size.toString() + " messages · saved with this project", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                }
+                if (running) Text("LIVE", color = Color(0xFF71D5A2), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+            if (entries.isEmpty()) Text("Your conversation with the builder will appear here as it plans, makes changes and checks the project.", color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+            entries.takeLast(80).forEach { entry ->
+                val bg = when { entry.user -> Color(0xFF30254A); entry.error -> Color(0xFF3A2029); else -> Color(0xFF20202A) }
+                Column(Modifier.fillMaxWidth().background(bg, RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(entry.role.uppercase(), color = if (entry.error) Color(0xFFFFA9B8) else Color(0xFFB79CFF), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        if (entry.streaming) Text("  ·  WORKING", color = Color(0xFF71D5A2), style = MaterialTheme.typography.labelSmall)
+                    }
+                    Text(entry.text, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+            if (queued != null && !running) Text("This project is queued (position " + queued + "). You can send a new direction after its run starts.", color = Color(0xFFFFD38D), style = MaterialTheme.typography.bodySmall)
+            else {
+                OutlinedTextField(value = draft, onValueChange = { draft = it }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(if (running) "Message the builder" else "What should the builder do next?") },
+                    placeholder = { Text("Describe the next change or improvement…") }, minLines = 2, maxLines = 5)
+                Button(onClick = { val text = draft.trim(); if (running) onAddBuildNote(projectFolder, text) else confirming = true; draft = "" },
+                    enabled = status != null && draft.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                    Text(if (running) "Send direction" else "Start follow-up")
+                }
+                if (!running) Text("A follow-up starts a new builder run on this existing project.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
 @Composable
 internal fun ProjectsScreen(
     projectsJson: String,
@@ -108,6 +227,7 @@ internal fun ProjectsScreen(
     activityMessage: String = "",
     onStopBuild: (String) -> Unit = {},
     onAddBuildNote: (String, String) -> Unit = { _, _ -> },
+    onFollowUp: (String, String) -> Unit = { _, _ -> },
     filesJson: String = "",
     selectedFileJson: String = "",
     filesLoading: Boolean = false,
@@ -189,6 +309,7 @@ internal fun ProjectsScreen(
                 activityMessage = activityMessage,
                 onStopBuild = onStopBuild,
                 onAddBuildNote = onAddBuildNote,
+                onFollowUp = onFollowUp,
                 filesJson = filesJson,
                 selectedFileJson = selectedFileJson,
                 filesLoading = filesLoading,
@@ -288,6 +409,7 @@ private fun ProjectDetails(
     activityMessage: String,
     onStopBuild: (String) -> Unit,
     onAddBuildNote: (String, String) -> Unit,
+    onFollowUp: (String, String) -> Unit,
     filesJson: String,
     selectedFileJson: String,
     filesLoading: Boolean,
@@ -305,7 +427,7 @@ private fun ProjectDetails(
     val questions = project.optJSONArray("questions")
     val folder = project.optString("folder")
     val appFolder = project.optString("app_folder")
-    var workspaceTab by remember(folder) { mutableStateOf("Overview") }
+    var workspaceTab by remember(folder) { mutableStateOf("Chat") }
 
     LaunchedEffect(workspaceTab, folder, appFolder) {
         when (workspaceTab) {
@@ -333,7 +455,7 @@ private fun ProjectDetails(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            listOf("Overview", "Preview", "Files", "Activity").forEach { tab ->
+            listOf("Chat", "Preview", "Files", "Activity").forEach { tab ->
                 Card(
                     modifier = Modifier.weight(1f).clickable { workspaceTab = tab },
                     colors = CardDefaults.cardColors(
@@ -354,38 +476,20 @@ private fun ProjectDetails(
         }
 
         when (workspaceTab) {
-            "Overview" -> {
+            "Chat" -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MetricCard("Messages", (conversation?.optInt("total") ?: 0).toString(), Modifier.weight(1f))
                     MetricCard("Questions", (questions?.length() ?: 0).toString(), Modifier.weight(1f))
-                    MetricCard("Conversation", (conversation?.optInt("total") ?: 0).toString(), Modifier.weight(1f))
                     MetricCard("Waiting", project.optInt("waiting").toString(), Modifier.weight(1f))
                 }
                 if (questions != null && questions.length() > 0) {
                     Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     for (index in 0 until questions.length()) {
                         val request = questions.optJSONObject(index) ?: continue
-                        key(folder, request.optString("id")) {
-                            ProjectInboxCard(request, folder, onAnswer)
-                        }
-                    }
-                } else {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), shape = RoundedCornerShape(16.dp)) {
-                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Project overview", fontWeight = FontWeight.SemiBold)
-                            Text("Your build, files, preview and activity now have their own workspace tabs.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
-                        }
+                        key(folder, request.optString("id")) { ProjectInboxCard(request, folder, onAnswer) }
                     }
                 }
-                BuildActivityPanel(
-                    projectFolder = folder,
-                    fallbackStatus = project.optString("status_label", project.optString("status")),
-                    statusJson = buildStatusJson,
-                    activityJson = activityJson,
-                    error = activityError,
-                    message = activityMessage,
-                    onStopBuild = onStopBuild,
-                    onAddBuildNote = onAddBuildNote
-                )
+                ProjectConversationPanel(folder, conversation, buildStatusJson, activityMessage, onAddBuildNote, onFollowUp)
             }
             "Preview" -> ProjectPreviewPanel(
                 url = previewUrl,
@@ -415,7 +519,7 @@ private fun ProjectDetails(
                 onAddBuildNote = onAddBuildNote
             )
         }
-        if (workspaceTab != "Overview" && questions != null && questions.length() > 0) {
+        if (workspaceTab != "Chat" && questions != null && questions.length() > 0) {
             Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             for (index in 0 until questions.length()) {
                 val request = questions.optJSONObject(index) ?: continue

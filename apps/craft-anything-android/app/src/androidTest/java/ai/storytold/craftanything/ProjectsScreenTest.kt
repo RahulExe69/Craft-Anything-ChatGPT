@@ -97,6 +97,7 @@ class ProjectsScreenTest {
             )
         }
 
+        composeRule.onNodeWithText("Activity").performClick()
         composeRule.onNodeWithText("Live build activity").assertIsDisplayed()
         composeRule.onNodeWithText("Building now").assertIsDisplayed()
         composeRule.onNodeWithText("start Reading src/main.kt").assertIsDisplayed()
@@ -221,6 +222,45 @@ class ProjectsScreenTest {
         composeRule.runOnIdle {
             assertEquals(listOf("approval-123", "", "", "true"), answer.get())
         }
+    }
+
+
+    @Test
+    fun rendersSavedBuilderConversationAndSendsLiveDirection() {
+        val folder = "/private/projects/pocket-notes"
+        val detail = """{"ok":true,"output":{"result":{"name":"Pocket Notes","folder":"/private/projects/pocket-notes","request":"A small private notes app","status":"building","status_label":"Building","questions":[],"conversation":{"total":3,"items":[{"User":"Make the home screen calmer"},{"Agent":{"text":"I'll simplify the layout and spacing.","streaming":true}},{"Step":{"step":"Build","text":"Updating the home screen"}}]}}}}"""
+        val status = """{"ok":true,"output":{"result":{"running":true,"queued":null,"status":"building","status_label":"Building"}}}"""
+        val direction = AtomicReference<Pair<String, String>?>(null)
+        composeRule.setContent {
+            ProjectsScreen(projectsJson=projectResponse, loading=false, error="", detailsJson=detail,
+                onRefresh={}, onOpenProject={}, onCloseDetails={}, buildStatusJson=status,
+                onAddBuildNote={ project, text -> direction.set(project to text) })
+        }
+        composeRule.onNodeWithText("Builder conversation").assertIsDisplayed()
+        composeRule.onNodeWithText("Make the home screen calmer").assertIsDisplayed()
+        composeRule.onNodeWithText("I'll simplify the layout and spacing.").assertIsDisplayed()
+        composeRule.onNodeWithText("Updating the home screen").assertIsDisplayed()
+        composeRule.onNodeWithText("Message the builder").performTextInput("Add a profile page")
+        composeRule.onNodeWithText("Send direction").performClick()
+        composeRule.runOnIdle { assertEquals(folder to "Add a profile page", direction.get()) }
+    }
+
+    @Test
+    fun stoppedProjectRequiresConfirmationBeforeStartingFollowUp() {
+        val folder = "/private/projects/pocket-notes"
+        val detail = """{"ok":true,"output":{"result":{"name":"Pocket Notes","folder":"/private/projects/pocket-notes","request":"A small private notes app","status":"paused","status_label":"Paused","questions":[],"conversation":{"total":1,"items":[{"User":"Build a private notes app"}]}}}}"""
+        val status = """{"ok":true,"output":{"result":{"running":false,"queued":null,"status":"paused","status_label":"Paused"}}}"""
+        val followUp = AtomicReference<Pair<String, String>?>(null)
+        composeRule.setContent {
+            ProjectsScreen(projectsJson=projectResponse, loading=false, error="", detailsJson=detail,
+                onRefresh={}, onOpenProject={}, onCloseDetails={}, buildStatusJson=status,
+                onFollowUp={ project, request -> followUp.set(project to request) })
+        }
+        composeRule.onNodeWithText("What should the builder do next?").performTextInput("Add encrypted backups")
+        composeRule.onNodeWithText("Start follow-up").performClick()
+        composeRule.onNodeWithText("Start follow-up build?").assertIsDisplayed()
+        composeRule.onNodeWithText("Start build").performClick()
+        composeRule.runOnIdle { assertEquals(folder to "Add encrypted backups", followUp.get()) }
     }
 
 }

@@ -231,6 +231,7 @@ class MainActivity : ComponentActivity() {
             var projectDetailsJson by remember { mutableStateOf("") }
             var projectRequestGeneration by remember { mutableStateOf(0) }
             var selectedProjectFolder by remember { mutableStateOf<String?>(null) }
+            var projectPollGeneration by remember { mutableStateOf(0) }
             var pendingProjectFolder by remember { mutableStateOf<String?>(null) }
             var buildStatusJson by remember { mutableStateOf("") }
             var buildActivityJson by remember { mutableStateOf("") }
@@ -350,6 +351,7 @@ class MainActivity : ComponentActivity() {
                             "Build queued for $projectName. You can follow it in Projects."
                         }
                         pendingProjectFolder = result.optString("project").takeIf { it.isNotBlank() }
+                        projectPollGeneration += 1
                         refreshProjects()
                         selected = "Projects"
                     }.onFailure {
@@ -596,7 +598,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            LaunchedEffect(selectedProjectFolder) {
+            LaunchedEffect(selectedProjectFolder, projectPollGeneration) {
                 val projectFolder = selectedProjectFolder ?: return@LaunchedEffect
                 while (true) {
                     val snapshot = withContext(Dispatchers.IO) {
@@ -611,13 +613,18 @@ class MainActivity : ComponentActivity() {
                                 nativeCallTool("rebuild_activity_show", activityParams, false),
                                 "Couldn't read build activity."
                             )
-                            status to activity
+                            val details = requireOkEnvelope(
+                                nativeCallTool("project_show", params, false),
+                                "Couldn't refresh project conversation."
+                            )
+                            Triple(status, activity, details)
                         }
                     }
                     if (selectedProjectFolder == projectFolder) {
-                        snapshot.onSuccess { (status, activity) ->
+                        snapshot.onSuccess { (status, activity, details) ->
                             buildStatusJson = status.toString(2)
                             buildActivityJson = activity.toString(2)
+                            projectDetailsJson = details.toString(2)
                             buildActivityError = ""
                         }.onFailure {
                             buildActivityError = it.message ?: "Couldn't refresh build activity."
@@ -887,6 +894,15 @@ class MainActivity : ComponentActivity() {
                                 activityMessage = buildActivityMessage,
                                 onStopBuild = stopBuild,
                                 onAddBuildNote = addBuildNote,
+                                onFollowUp = { projectFolder, request ->
+                                    val params = JSONObject()
+                                        .put("request", request)
+                                        .put("project", projectFolder)
+                                        .put("resume", false)
+                                        .put("rounds", 2)
+                                        .toString()
+                                    startBuild(params)
+                                },
                                 filesJson = projectFilesJson,
                                 selectedFileJson = selectedProjectFileJson,
                                 filesLoading = projectFilesLoading,
