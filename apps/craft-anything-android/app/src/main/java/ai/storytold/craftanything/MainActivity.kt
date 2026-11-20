@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
             var projectDetailsJson by remember { mutableStateOf("") }
             var projectRequestGeneration by remember { mutableStateOf(0) }
             var selectedProjectFolder by remember { mutableStateOf<String?>(null) }
+            var pendingProjectFolder by remember { mutableStateOf<String?>(null) }
             var buildStatusJson by remember { mutableStateOf("") }
             var buildActivityJson by remember { mutableStateOf("") }
             var buildActivityError by remember { mutableStateOf("") }
@@ -237,6 +238,7 @@ class MainActivity : ComponentActivity() {
                         } else {
                             "Build queued for $projectName. You can follow it in Projects."
                         }
+                        pendingProjectFolder = result.optString("project").takeIf { it.isNotBlank() }
                         refreshProjects()
                         selected = "Projects"
                     }.onFailure {
@@ -351,6 +353,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            LaunchedEffect(pendingProjectFolder) {
+                val folder = pendingProjectFolder ?: return@LaunchedEffect
+                pendingProjectFolder = null
+                openProject(folder)
+            }
+
             val stopBuild: (String) -> Unit = { projectFolder ->
                 scope.launch {
                     val response = withContext(Dispatchers.IO) {
