@@ -201,8 +201,14 @@ private fun ProjectConversationPanel(
                 OutlinedTextField(value = draft, onValueChange = { draft = it }, modifier = Modifier.fillMaxWidth(),
                     label = { Text(if (running) "Message the builder" else "What should the builder do next?") },
                     placeholder = { Text("Describe the next change or improvement…") }, minLines = 2, maxLines = 5)
-                Button(onClick = { val text = draft.trim(); if (running) onAddBuildNote(projectFolder, text) else confirming = true; draft = "" },
-                    enabled = status != null && draft.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = {
+                    if (running) {
+                        onAddBuildNote(projectFolder, draft.trim())
+                        draft = ""
+                    } else {
+                        confirming = true
+                    }
+                }, enabled = status != null && draft.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
                     Text(if (running) "Send direction" else "Start follow-up")
                 }
                 if (!running) Text("A follow-up starts a new builder run on this existing project.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
