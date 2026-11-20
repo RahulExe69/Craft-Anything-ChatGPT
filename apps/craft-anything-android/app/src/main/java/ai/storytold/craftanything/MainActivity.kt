@@ -77,6 +77,8 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(if (nativeReady) "Connecting to Rust core…" else "Rust core not built yet")
             }
             var toolCount by remember { mutableStateOf(0) }
+            var toolCatalogJson by remember { mutableStateOf("[]") }
+            var toolResult by remember { mutableStateOf("") }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
@@ -137,12 +139,14 @@ class MainActivity : ComponentActivity() {
                 if (nativeReady) {
                     val result = withContext(Dispatchers.IO) {
                         runCatching {
-                            nativeVersion() to JSONArray(nativeToolCatalog()).length()
+                            val catalog = nativeToolCatalog()
+                            Triple(nativeVersion(), catalog, JSONArray(catalog).length())
                         }
                     }
                     result.onSuccess {
                         coreVersion = "Rust core v${it.first}"
-                        toolCount = it.second
+                        toolCatalogJson = it.second
+                        toolCount = it.third
                     }.onFailure {
                         coreVersion = "Rust bridge error: ${it.message ?: "unknown error"}"
                     }
@@ -203,7 +207,29 @@ class MainActivity : ComponentActivity() {
                                 { selected = "Tools" }
                             )
                             "Projects" -> EmptyScreen("Your projects", "Projects you create or open on this device will appear here.")
-                            "Tools" -> ToolsScreen(nativeReady, toolCount, coreVersion)
+                            "Tools" -> ToolsScreen(
+                                catalogJson = toolCatalogJson,
+                                coreVersion = coreVersion,
+                                result = toolResult,
+                                onInvoke = { toolId, paramsJson ->
+                                    toolResult = "Running $toolId…"
+                                    scope.launch {
+                                        val response = withContext(Dispatchers.IO) {
+                                            runCatching { JSONObject(nativeCallTool(toolId, paramsJson)) }
+                                        }
+                                        response.onSuccess { payload ->
+                                            toolResult = if (payload.optBoolean("ok")) {
+                                                payload.optJSONObject("output")?.toString(2) ?: payload.toString(2)
+                                            } else {
+                                                payload.optString("error", "The engine couldn't complete this action.")
+                                            }
+                                        }.onFailure { error ->
+                                            toolResult = error.message ?: "The native bridge call failed."
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
                             else -> EmptyScreen("Settings", "Mobile permissions, AI providers and connected companion devices will live here.")
                         }
                     }
@@ -262,24 +288,6 @@ private fun HomeScreen(
                     Text("See what the Rust engine exposes", color = Muted, style = MaterialTheme.typography.bodySmall)
                 }
                 Text("→", color = Violet)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToolsScreen(nativeReady: Boolean, toolCount: Int, coreVersion: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Engine connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(coreVersion, color = Muted)
-        Text(
-            if (nativeReady) "$toolCount tools discovered from the Rust registry." else "Build the Rust Android library to populate the real tool registry.",
-            color = Muted
-        )
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
-            Column(Modifier.padding(16.dp)) {
-                Text("First vertical slice", fontWeight = FontWeight.Bold)
-                Text("Native file picker → Rust inspection tool → evidence result.", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
