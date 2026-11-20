@@ -64,6 +64,7 @@ private val Muted = Color(0xFF9A97A8)
 private const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
 
 class MainActivity : ComponentActivity() {
+    private external fun nativeInitialize(appDataDir: String): String
     private external fun nativeVersion(): String
     private external fun nativeToolCatalog(): String
     private external fun nativeCallTool(toolId: String, paramsJson: String, consentGranted: Boolean): String
@@ -79,9 +80,42 @@ class MainActivity : ComponentActivity() {
             var toolCount by remember { mutableStateOf(0) }
             var toolCatalogJson by remember { mutableStateOf("[]") }
             var toolResult by remember { mutableStateOf("") }
+            var projectsJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"projects\":[]}}}") }
+            var projectsLoading by remember { mutableStateOf(false) }
+            var projectsError by remember { mutableStateOf("") }
+            var projectDetailsJson by remember { mutableStateOf("") }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
+            val refreshProjects: () -> Unit = {
+                if (nativeReady) {
+                    scope.launch {
+                        projectsLoading = true
+                        projectsError = ""
+                        val response = withContext(Dispatchers.IO) {
+                            runCatching { JSONObject(nativeCallTool("project_list", "{}", false)).toString(2) }
+                        }
+                        response.onSuccess { projectsJson = it }.onFailure {
+                            projectsError = it.message ?: "Couldn't load projects."
+                        }
+                        projectsLoading = false
+                    }
+                }
+            }
+            val openProject: (String) -> Unit = { folder ->
+                scope.launch {
+                    projectDetailsJson = ""
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val params = JSONObject().put("project", folder).toString()
+                            JSONObject(nativeCallTool("project_show", params, false)).toString(2)
+                        }
+                    }
+                    response.onSuccess { projectDetailsJson = it }.onFailure {
+                        projectsError = it.message ?: "Couldn't open this project."
+                    }
+                }
+            }
             val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                 if (uri != null && nativeReady) {
                     scope.launch {
@@ -139,14 +173,20 @@ class MainActivity : ComponentActivity() {
                 if (nativeReady) {
                     val result = withContext(Dispatchers.IO) {
                         runCatching {
+                            val initialized = nativeInitialize(context.filesDir.absolutePath)
+                            if (initialized != "ok") {
+                                throw IllegalStateException(initialized.removePrefix("error:"))
+                            }
                             val catalog = nativeToolCatalog()
-                            Triple(nativeVersion(), catalog, JSONArray(catalog).length())
+                            val projectList = nativeCallTool("project_list", "{}", false)
+                            Triple(nativeVersion(), catalog, projectList)
                         }
                     }
                     result.onSuccess {
                         coreVersion = "Rust core v${it.first}"
                         toolCatalogJson = it.second
-                        toolCount = it.third
+                        toolCount = JSONArray(it.second).length()
+                        projectsJson = it.third
                     }.onFailure {
                         coreVersion = "Rust bridge error: ${it.message ?: "unknown error"}"
                     }
@@ -206,7 +246,16 @@ class MainActivity : ComponentActivity() {
                                 { filePicker.launch(arrayOf("*/*")) },
                                 { selected = "Tools" }
                             )
-                            "Projects" -> EmptyScreen("Your projects", "Projects you create or open on this device will appear here.")
+                            "Projects" -> ProjectsScreen(
+                                projectsJson = projectsJson,
+                                loading = projectsLoading,
+                                error = projectsError,
+                                detailsJson = projectDetailsJson,
+                                onRefresh = refreshProjects,
+                                onOpenProject = openProject,
+                                onCloseDetails = { projectDetailsJson = "" },
+                                modifier = Modifier.weight(1f)
+                            )
                             "Tools" -> ToolsScreen(
                                 catalogJson = toolCatalogJson,
                                 coreVersion = coreVersion,
