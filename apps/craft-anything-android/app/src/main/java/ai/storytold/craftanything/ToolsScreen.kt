@@ -91,6 +91,7 @@ internal fun ToolsScreen(
     var query by remember { mutableStateOf("") }
     var selectedId by remember { mutableStateOf<String?>(null) }
     var paramsJson by remember { mutableStateOf("{}") }
+    var pendingApprovalParams by remember { mutableStateOf("{}") }
     var approvalTool by remember { mutableStateOf<NativeTool?>(null) }
     var validationError by remember { mutableStateOf<String?>(null) }
     val filtered = remember(tools, query) { filterToolCatalog(tools, query) }
@@ -164,8 +165,10 @@ internal fun ToolsScreen(
                                     }
                                     candidate.onSuccess { normalized ->
                                         validationError = null
-                                        if (tool.requiresConsent) approvalTool = tool
-                                        else onInvoke(tool.id, normalized, false)
+                                        if (tool.requiresConsent) {
+                                            pendingApprovalParams = normalized
+                                            approvalTool = tool
+                                        } else onInvoke(tool.id, normalized, false)
                                     }.onFailure {
                                         validationError = "Enter a valid JSON object before running this tool."
                                     }
@@ -209,7 +212,7 @@ internal fun ToolsScreen(
                 Button(onClick = {
                     val approved = tool
                     approvalTool = null
-                    onInvoke(approved.id, paramsJson, true)
+                    onInvoke(approved.id, pendingApprovalParams, true)
                 }) {
                     Text("Approve once and run")
                 }
