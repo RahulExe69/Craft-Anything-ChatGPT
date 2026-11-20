@@ -63,7 +63,14 @@ The project should be easy to fork and bend. New features land behind a seam, no
 ### R5.9 Native Android application
 Owner: open · Status: in progress
 Bring Craft Anything to Android as a native mobile app, reusing the existing Rust engine where the target and Android sandbox permit it. Preserve clear feature boundaries where desktop-only capabilities cannot be reproduced on Android.
-- [ ] Establish the Android app architecture, JNI/core bridge, platform adapters, build pipeline and feature-parity matrix — claimed: RahulExe69, branch feature/android-native-app
+- [x] Establish the native Compose app shell, JNI bridge, Storage Access Framework importer, app-private project/config directories and Android CI APK workflow — claimed: RahulExe69, branch feature/android-native-app
+- [x] Register the shared AI rebuild toolset in the Android engine and add a guided `rebuild_start` workflow with explicit user confirmation.
+- [x] Add Android AI provider configuration, app-private key storage, streamed AI conversation, launcher assets and ABI-split minified release previews.
+- [ ] Verify this revision's Rust, Kotlin, Compose and release builds in CI; measure the actual ARM64 APK size and fix any regressions.
+- [ ] Add durable foreground rebuild execution, progress notifications and resume/recovery after Android kills the process.
+- [ ] Add project source browsing, export/share and safe hand-off to external editors or storage providers.
+- [ ] Implement Android-native or remote adapters for desktop-only CLI, browser, package-manager, compiler and build-validation workflows; document unsupported capabilities.
+- [ ] Complete an end-to-end feature-parity matrix and verify representative website, Android-app and game rebuilds on real Android hardware.
 
 
 Every unticked `- [ ]` line in this file is open work, under the item it belongs to.
