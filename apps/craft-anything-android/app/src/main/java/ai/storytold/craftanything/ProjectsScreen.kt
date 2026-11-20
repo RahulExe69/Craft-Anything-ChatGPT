@@ -250,6 +250,9 @@ internal fun ProjectsScreen(
     onSaveProjectFile: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     fileSaving: Boolean = false,
     fileSaveMessage: String = "",
+    onExportProject: (String, String) -> Unit = { _, _ -> },
+    exportBusy: Boolean = false,
+    exportMessage: String = "",
     onInstallDependencies: (String, String) -> Unit = { _, _ -> },
     onStartProjectPreview: (String) -> Unit = {},
     modifier: Modifier = Modifier
@@ -336,6 +339,9 @@ internal fun ProjectsScreen(
                 onSaveProjectFile = onSaveProjectFile,
                 fileSaving = fileSaving,
                 fileSaveMessage = fileSaveMessage,
+                onExportProject = onExportProject,
+                exportBusy = exportBusy,
+                exportMessage = exportMessage,
                 onInstallDependencies = onInstallDependencies,
                 onStartProjectPreview = onStartProjectPreview
             )
@@ -440,6 +446,9 @@ private fun ProjectDetails(
     onSaveProjectFile: (String, String, String, String) -> Unit,
     fileSaving: Boolean,
     fileSaveMessage: String,
+    onExportProject: (String, String) -> Unit,
+    exportBusy: Boolean,
+    exportMessage: String,
     onInstallDependencies: (String, String) -> Unit,
     onStartProjectPreview: (String) -> Unit
 ) {
@@ -468,6 +477,15 @@ private fun ProjectDetails(
                 val stack = project.opt("stack")?.takeUnless { it == JSONObject.NULL }?.toString().orEmpty()
                 if (stack.isNotBlank() && stack != "[]") {
                     Text("Stack: $stack", color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                }
+                OutlinedButton(
+                    onClick = { onExportProject(project.optString("name", "craft-project"), appFolder) },
+                    enabled = !exportBusy
+                ) {
+                    Text(if (exportBusy) "Preparing ZIP…" else "Export project ZIP")
+                }
+                if (exportMessage.isNotBlank()) {
+                    Text(exportMessage, color = if (exportMessage.startsWith("Exported")) Color(0xFF83D7AA) else Color(0xFFB9B5C6), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

@@ -301,6 +301,9 @@ class MainActivity : ComponentActivity() {
             var selectedProjectFileLoading by remember { mutableStateOf(false) }
             var projectFileSaving by remember { mutableStateOf(false) }
             var projectFileSaveMessage by remember { mutableStateOf("") }
+            var projectExportBusy by remember { mutableStateOf(false) }
+            var projectExportMessage by remember { mutableStateOf("") }
+            var pendingExportAppFolder by remember { mutableStateOf("") }
             var previewUrl by remember { mutableStateOf("") }
             var previewLoading by remember { mutableStateOf(false) }
             var previewError by remember { mutableStateOf("") }
@@ -312,6 +315,34 @@ class MainActivity : ComponentActivity() {
             val notificationPermissionLauncher = rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
             ) { }
+            val exportProjectLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("application/zip")
+            ) { uri ->
+                val appFolder = pendingExportAppFolder
+                pendingExportAppFolder = ""
+                if (uri != null && appFolder.isNotBlank()) {
+                    scope.launch {
+                        projectExportBusy = true
+                        projectExportMessage = "Preparing project archive…"
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val output = context.contentResolver.openOutputStream(uri, "w")
+                                    ?: throw IOException("Android couldn't open the selected destination.")
+                                ProjectArchiveExporter.writeZip(File(appFolder), output)
+                            }
+                        }
+                        result.onSuccess { summary ->
+                            projectExportMessage = "Exported " + summary.files + " files" +
+                                if (summary.excludedSensitiveFiles > 0) " · excluded " + summary.excludedSensitiveFiles + " secret files" else ""
+                        }.onFailure {
+                            projectExportMessage = it.message ?: "Couldn't export this project."
+                        }
+                        projectExportBusy = false
+                    }
+                } else {
+                    projectExportMessage = "Export cancelled."
+                }
+            }
             val refreshProjects: () -> Unit = {
                 if (nativeReady && coreVersion.startsWith("Rust core")) {
                     val requestGeneration = projectsListRequestGeneration.incrementAndGet()
@@ -1020,6 +1051,14 @@ class MainActivity : ComponentActivity() {
                                 onSaveProjectFile = saveProjectFile,
                                 fileSaving = projectFileSaving,
                                 fileSaveMessage = projectFileSaveMessage,
+                                onExportProject = { projectName, appFolder ->
+                                    pendingExportAppFolder = appFolder
+                                    projectExportMessage = ""
+                                    val safeName = projectName.replace(Regex("[^A-Za-z0-9._-]+"), "-").trim('-').ifBlank { "craft-project" }
+                                    exportProjectLauncher.launch("$safeName.zip")
+                                },
+                                exportBusy = projectExportBusy,
+                                exportMessage = projectExportMessage,
                                 onInstallDependencies = { projectFolder, prompt ->
                                     val params = JSONObject()
                                         .put("request", prompt)
