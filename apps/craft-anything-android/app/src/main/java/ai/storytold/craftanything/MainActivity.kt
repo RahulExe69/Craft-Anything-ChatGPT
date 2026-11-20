@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -31,13 +30,11 @@ import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -87,7 +84,19 @@ class MainActivity : ComponentActivity() {
                                 val folder = File(context.filesDir, "targets").apply { mkdirs() }
                                 val copy = File.createTempFile("target-", ".bin", folder)
                                 val input = context.contentResolver.openInputStream(uri) ?: error("Could not read selected file")
-                                input.use { source -> copy.outputStream().use { destination -> source.copyTo(destination) } }
+                                input.use { source ->
+                                    copy.outputStream().use { destination ->
+                                        val buffer = ByteArray(64 * 1024)
+                                        var total = 0L
+                                        while (true) {
+                                            val count = source.read(buffer)
+                                            if (count < 0) break
+                                            total += count
+                                            if (total > 512L * 1024L * 1024L) error("Files larger than 512 MB are not supported in this first mobile build.")
+                                            destination.write(buffer, 0, count)
+                                        }
+                                    }
+                                }
                                 val params = org.json.JSONObject().put("path", copy.absolutePath).toString()
                                 org.json.JSONObject(nativeCallTool("core_target_open", params))
                             }
