@@ -26,9 +26,10 @@ internal object AndroidTargetImporter {
                 throw IOException("Couldn't create the private import directory.")
             }
 
-            copy = File.createTempFile("target-", FileImport.safeSuffix(displayName), targetsDir)
-            val copiedBytes = FileImport.copyBounded(input, copy, maxBytes)
-            val parameters = JSONObject().put("path", copy.absolutePath).toString()
+            val destination = File.createTempFile("target-", FileImport.safeSuffix(displayName), targetsDir)
+            copy = destination
+            val copiedBytes = FileImport.copyBounded(input, destination, maxBytes)
+            val parameters = JSONObject().put("path", destination.absolutePath).toString()
             val payload = JSONObject(openTarget(parameters))
             if (!payload.optBoolean("ok")) {
                 throw IOException(
@@ -39,8 +40,8 @@ internal object AndroidTargetImporter {
 
             val target = payload.optJSONObject("output")?.optJSONObject("result")
             val enginePath = target?.optString("path")?.takeIf { it.isNotBlank() }
-            if (enginePath != null && File(enginePath).absolutePath != copy.absolutePath) {
-                copy.delete()
+            if (enginePath != null && File(enginePath).absolutePath != destination.absolutePath) {
+                destination.delete()
             }
 
             val title = target?.optString("name")?.takeIf { it.isNotBlank() } ?: displayName
