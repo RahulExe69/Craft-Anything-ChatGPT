@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import java.io.File
 import java.io.IOException
-import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -175,10 +174,6 @@ class MainActivity : ComponentActivity() {
                         targetResult = "Copying file into app storage…"
                         val opened = withContext(Dispatchers.IO) {
                             runCatching {
-                                val folder = File(context.filesDir, "targets")
-                                if (!folder.exists() && !folder.mkdirs()) {
-                                    throw IOException("Couldn't create the private import directory.")
-                                }
                                 val displayName = context.contentResolver.query(
                                     uri,
                                     arrayOf(OpenableColumns.DISPLAY_NAME),
@@ -188,32 +183,17 @@ class MainActivity : ComponentActivity() {
                                 )?.use { cursor ->
                                     if (cursor.moveToFirst()) cursor.getString(0) else null
                                 } ?: uri.lastPathSegment ?: "Selected file"
-                                val copy = File.createTempFile(
-                                    "target-",
-                                    FileImport.safeSuffix(displayName),
-                                    folder
-                                )
-                                try {
-                                    val input = context.contentResolver.openInputStream(uri)
-                                        ?: throw IOException("The selected document provider returned no readable stream.")
-                                    val copiedBytes = FileImport.copyBounded(input, copy, MAX_IMPORT_BYTES)
-                                    val parameters = JSONObject().put("path", copy.absolutePath).toString()
-                                    val payload = requireOkEnvelope(
-                                    nativeCallTool("core_target_open", parameters, false),
-                                    "The Rust engine couldn't open this file."
-                                )
-                                    val target = payload.optJSONObject("output")?.optJSONObject("result")
-                                    val enginePath = target?.optString("path")?.takeIf { it.isNotBlank() }
-                                    if (enginePath != null && File(enginePath).absolutePath != copy.absolutePath) {
-                                        copy.delete()
+                                val input = context.contentResolver.openInputStream(uri)
+                                    ?: throw IOException("The selected document provider returned no readable stream.")
+                                AndroidTargetImporter.import(
+                                    input = input,
+                                    displayName = displayName,
+                                    targetsDir = File(context.filesDir, "targets"),
+                                    maxBytes = MAX_IMPORT_BYTES,
+                                    openTarget = { parameters ->
+                                        nativeCallTool("core_target_open", parameters, false)
                                     }
-                                    val title = target?.optString("name")?.takeIf { it.isNotBlank() } ?: displayName
-                                    val kind = target?.optString("kind")?.takeIf { it.isNotBlank() } ?: "target"
-                                    "Opened $title · $kind · ${formatByteCount(copiedBytes)}"
-                                } catch (error: Exception) {
-                                    copy.delete()
-                                    throw error
-                                }
+                                )
                             }
                         }
                         opened.onSuccess { message ->
@@ -417,12 +397,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
-
-private fun formatByteCount(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0)
-    else -> String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0))
 }
 
 @Composable
