@@ -41,7 +41,6 @@ internal fun BuildScreen(
     starting: Boolean,
     feedback: String,
     importedTargetPath: String,
-    importedTargetFolder: String,
     onChooseTarget: () -> Unit,
     onStartBuild: (String) -> Unit,
     onOpenProjects: () -> Unit,
@@ -181,10 +180,6 @@ internal fun BuildScreen(
                     .put("resume", false)
                     .put("rounds", 2)
                     .put("generate_assets", generateAssets)
-                if (importedTargetFolder.isNotBlank()) {
-                    params.put("project_folder", importedTargetFolder)
-                    params.put("existing", "start_from")
-                }
                 if (buildWith.isNotBlank()) params.put("build_with", buildWith.trim())
                 if (selectedBackend.isNotBlank()) params.put("backend", selectedBackend)
                 confirmParams = params.toString()
