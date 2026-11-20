@@ -37,7 +37,7 @@
 
 **Interfaces:**
 - Produces `tool_catalog_json(engine: &Engine) -> String`.
-- Produces `dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str) -> String`, returning a JSON envelope with `ok`, `output`, or `error`.
+- Produces `dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_granted: bool) -> String`, returning a JSON envelope with `ok`, `output`, or `error`; the explicit approval applies to only that call.
 - JNI entry points delegate to these helpers; no business logic remains in JNI wrappers.
 
 - [x] **Step 1: Write failing Rust tests** for the catalogue containing `core_target_open`, a successful `core_session_show` dispatch, and malformed JSON returning `ok: false` with a useful error.
