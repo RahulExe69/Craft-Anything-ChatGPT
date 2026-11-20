@@ -66,6 +66,11 @@ internal fun parseProjectFiles(response: String): List<NativeProjectFile> = runC
     }
 }.getOrDefault(emptyList())
 
+internal fun projectFilesListingTruncated(response: String): Boolean = runCatching {
+    val result = JSONObject(response).optJSONObject("output")?.optJSONObject("result")
+    result?.optBoolean("truncated") == true
+}.getOrDefault(false)
+
 internal fun parseProjectFileContent(response: String): NativeProjectFileContent? = runCatching {
     val envelope = JSONObject(response)
     if (!envelope.optBoolean("ok")) return null
@@ -90,6 +95,7 @@ internal fun ProjectFilesPanel(
     onCloseFile: () -> Unit
 ) {
     val files = remember(filesJson) { parseProjectFiles(filesJson) }
+    val truncated = remember(filesJson) { projectFilesListingTruncated(filesJson) }
     val selected = remember(selectedFileJson) { parseProjectFileContent(selectedFileJson) }
     var query by remember { mutableStateOf("") }
     val filtered = remember(files, query) {
@@ -130,7 +136,11 @@ internal fun ProjectFilesPanel(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Project files", fontWeight = FontWeight.SemiBold)
-                    Text("${files.size} files indexed", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "${files.size} files indexed" + if (truncated) " · listing capped at 300" else "",
+                        color = Color(0xFF9A97A8),
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
                 OutlinedButton(onClick = onRefresh, enabled = !loading) {
                     Text(if (loading) "Scanning…" else "Refresh")
