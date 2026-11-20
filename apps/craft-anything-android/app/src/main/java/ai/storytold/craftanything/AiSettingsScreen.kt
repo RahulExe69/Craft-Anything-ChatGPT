@@ -68,7 +68,7 @@ internal fun parseNativeAiStatus(raw: String): NativeAiStatus {
                         name = item.optString("name"),
                         kind = item.optString("kind"),
                         model = item.optString("model"),
-                        baseUrl = item.optString("base_url").takeUnless { it == "null" },
+                        baseUrl = item.optString("base_url").takeUnless { it == "null" } ?: "",
                         enabled = item.optBoolean("enabled"),
                         hasKey = item.optBoolean("has_key"),
                     )
@@ -108,7 +108,7 @@ internal fun AiSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val status = remember(statusJson) { parseNativeAiStatus(statusJson) }
-    var showForm by remember { mutableStateOf(status.backends.isEmpty()) }
+    var showForm by remember(status.backends.isEmpty()) { mutableStateOf(status.backends.isEmpty()) }
     var providerKind by remember { mutableStateOf("openai") }
     var providerMenu by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("OpenAI") }
@@ -184,13 +184,6 @@ internal fun AiSettingsScreen(
                             }
                         }
                         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                "Remove",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier
-                                    .padding(6.dp)
-                                    .then(Modifier),
-                            )
                             OutlinedButton(
                                 onClick = { onRemoveBackend(backend.name) },
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
