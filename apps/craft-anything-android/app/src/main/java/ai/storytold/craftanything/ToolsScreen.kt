@@ -216,10 +216,14 @@ internal fun ToolsScreen(
             onDismissRequest = { approvalTool = null },
             title = { Text("Confirm this tool action") },
             text = {
-                Text(
-                    "${tool.title} is marked by the Rust engine as running foreign code or changing a connected device. " +
-                        "Approve this single invocation only if you trust the action and its parameters."
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "${tool.title} is marked by the Rust engine as running foreign code or changing a connected device. " +
+                            "Approve this single invocation only if you trust the action."
+                    )
+                    Text("PARAMETERS", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                    Text(pendingApprovalParams, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                }
             },
             confirmButton = {
                 Button(onClick = {
