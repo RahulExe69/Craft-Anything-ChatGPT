@@ -201,7 +201,7 @@ internal fun ToolsScreen(
     approvalTool?.let { tool ->
         AlertDialog(
             onDismissRequest = { approvalTool = null },
-            title = { Text("Approval required") },
+            title = { Text("Confirm this tool action") },
             text = {
                 Text(
                     "${tool.title} is marked by the Rust engine as running foreign code or changing a connected device. " +
