@@ -1,8 +1,10 @@
 package ai.storytold.craftanything
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -370,25 +373,66 @@ private fun BuildActivityPanel(
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Send direction") }
             }
-            Text("What the builder is doing", fontWeight = FontWeight.SemiBold)
-            if (lines.isEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Activity timeline", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text(
-                    "No activity has been recorded yet. The first planning or build event will appear here.",
+                    "${lines.size} recent events",
                     color = Color(0xFF9A97A8),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.labelSmall
                 )
-            } else {
-                lines.takeLast(40).asReversed().forEach { line ->
-                    val warning = line.contains("FAIL", ignoreCase = true) || line.contains("ERROR", ignoreCase = true)
+            }
+            if (lines.isEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF20202A)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
-                        line,
-                        color = if (warning) Color(0xFFFFA9B8) else Color(0xFFCFCCD9),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        maxLines = 4
+                        "Your builder's steps will appear here as they happen — planning, file changes, commands and checks.",
+                        color = Color(0xFFB9B5C6),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(12.dp)
                     )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    lines.takeLast(18).asReversed().forEach { line ->
+                        BuildActivityRow(line)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BuildActivityRow(line: String) {
+    val warning = line.contains("FAIL", ignoreCase = true) || line.contains("ERROR", ignoreCase = true)
+    val completed = line.contains("done", ignoreCase = true) || line.contains("finished", ignoreCase = true)
+    val marker = when {
+        warning -> Color(0xFFFF8D9C)
+        completed -> Color(0xFF71D5A2)
+        else -> Color(0xFF9B7BFF)
+    }
+    val title = line.substringAfter(' ').trim().ifBlank { line }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier.padding(top = 5.dp).size(8.dp).background(marker, RoundedCornerShape(50))
+        )
+        Text(
+            title,
+            color = if (warning) Color(0xFFFFA9B8) else Color(0xFFCFCCD9),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            maxLines = 4,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
