@@ -108,6 +108,9 @@ class MainActivity : ComponentActivity() {
             var aiSettingsLoading by remember { mutableStateOf(false) }
             var aiSettingsMessage by remember { mutableStateOf("") }
             var selectedAiBackend by remember { mutableStateOf("") }
+            var selectedBuildBackend by remember { mutableStateOf("") }
+            var buildStarting by remember { mutableStateOf(false) }
+            var buildFeedback by remember { mutableStateOf("") }
             var aiChatStarted by remember { mutableStateOf(false) }
             var aiChatBusy by remember { mutableStateOf(false) }
             var aiChatStatus by remember { mutableStateOf("Connect a provider to start.") }
@@ -199,6 +202,36 @@ class MainActivity : ComponentActivity() {
             }
             val removeAiBackend: (String) -> Unit = { name ->
                 runAiSettingsAction("$name removed.") { nativeAiRemoveBackend(name) }
+            }
+
+            val startBuild: (String) -> Unit = { paramsJson ->
+                scope.launch {
+                    buildStarting = true
+                    buildFeedback = "Preparing your project…"
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching {
+                            requireOkEnvelope(
+                                nativeCallTool("rebuild_start", paramsJson, true),
+                                "Craft Anything couldn't start this build."
+                            )
+                        }
+                    }
+                    response.onSuccess { payload ->
+                        val output = payload.optJSONObject("output") ?: JSONObject()
+                        val result = output.optJSONObject("result") ?: output
+                        val projectName = result.optString("project").substringAfterLast('/').ifBlank { "your project" }
+                        buildFeedback = if (result.optBoolean("started", true)) {
+                            "Build started for $projectName. You can follow its progress in Projects."
+                        } else {
+                            "Build queued for $projectName. You can follow it in Projects."
+                        }
+                        refreshProjects()
+                        selected = "Projects"
+                    }.onFailure {
+                        buildFeedback = it.message ?: "Craft Anything couldn't start this build."
+                    }
+                    buildStarting = false
+                }
             }
             val startAiChat: (String) -> Unit = { backend ->
                 scope.launch {
@@ -361,6 +394,9 @@ class MainActivity : ComponentActivity() {
                 if (selectedAiBackend.isBlank()) {
                     selectedAiBackend = aiStatus.lead ?: aiStatus.backends.firstOrNull { it.enabled }?.name.orEmpty()
                 }
+                if (selectedBuildBackend.isBlank()) {
+                    selectedBuildBackend = aiStatus.builder ?: aiStatus.backends.firstOrNull { it.enabled }?.name.orEmpty()
+                }
             }
 
             LaunchedEffect(aiChatStarted) {
@@ -476,7 +512,7 @@ class MainActivity : ComponentActivity() {
                             listOf(
                                 Triple("Home", Icons.Rounded.Home, "Home"),
                                 Triple("Projects", Icons.Rounded.FolderOpen, "Projects"),
-                                Triple("AI", Icons.Rounded.AutoAwesome, "AI"),
+                                Triple("Build", Icons.Rounded.AutoAwesome, "Build"),
                                 Triple("Evidence", Icons.Rounded.Assessment, "Evidence"),
                                 Triple("Tools", Icons.Rounded.Terminal, "Tools")
                             ).forEach { (label, icon, route) ->
@@ -509,6 +545,9 @@ class MainActivity : ComponentActivity() {
                                 Text(selected, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { selected = "AI" }) {
+                                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Ask AI", tint = Violet)
+                            }
                             IconButton(onClick = { selected = "Settings" }) {
                                 Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = Muted)
                             }
@@ -527,7 +566,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 { selected = "Tools" },
-                                { selected = "AI" }
+                                { selected = "AI" },
+                                { selected = "Build" }
                             )
                             "Projects" -> ProjectsScreen(
                                 projectsJson = projectsJson,
@@ -587,6 +627,17 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.weight(1f)
                             )
 
+
+                            "Build" -> BuildScreen(
+                                backends = parseNativeAiStatus(aiStatusJson).backends,
+                                selectedBackend = selectedBuildBackend,
+                                onBackendSelected = { selectedBuildBackend = it },
+                                starting = buildStarting,
+                                feedback = buildFeedback,
+                                onStartBuild = startBuild,
+                                onOpenProjects = { selected = "Projects" },
+                                modifier = Modifier.weight(1f)
+                            )
                             "AI" -> AiChatScreen(
                                 backends = parseNativeAiStatus(aiStatusJson).backends,
                                 selectedBackend = selectedAiBackend,
@@ -661,9 +712,10 @@ private fun HomeScreen(
     targetResult: String,
     openFile: () -> Unit,
     openTools: () -> Unit,
-    openAi: () -> Unit
+    openAi: () -> Unit,
+    openBuild: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Understand it. Rebuild it.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Inspect software, collect evidence and build something of your own — from your phone.", color = Muted)
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
@@ -687,6 +739,21 @@ private fun HomeScreen(
             }
         }
 
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = openBuild),
+            colors = CardDefaults.cardColors(containerColor = Violet.copy(alpha = .13f)),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Violet)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text("Create a project", fontWeight = FontWeight.Bold)
+                    Text("Describe an app, website or game and start a build", color = Muted, style = MaterialTheme.typography.bodySmall)
+                }
+                Text("→", color = Violet)
+            }
+        }
         Card(
             modifier = Modifier.fillMaxWidth().clickable(onClick = openAi),
             colors = CardDefaults.cardColors(containerColor = Violet.copy(alpha = .13f)),
