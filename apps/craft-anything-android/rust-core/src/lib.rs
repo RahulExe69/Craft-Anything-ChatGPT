@@ -137,6 +137,8 @@ fn add_android_backend(hub: &AiHub, json: &str) -> Result<(), String> {
     if input.kind == BackendKind::OpenaiCompatible && base_url.is_none() {
         return Err("Enter the server URL, including /v1, for an OpenAI-compatible provider.".to_string());
     }
+    let lead_missing = hub.chosen(Role::Lead).is_none();
+    let builder_missing = hub.chosen(Role::Builder).is_none();
     let config = BackendConfig {
         name: name.to_string(),
         kind: input.kind,
@@ -145,7 +147,14 @@ fn add_android_backend(hub: &AiHub, json: &str) -> Result<(), String> {
         ssh_host: None,
         enabled: true,
     };
-    hub.add_backend(config, input.key).map_err(|error| error.message)
+    hub.add_backend(config, input.key).map_err(|error| error.message)?;
+    if lead_missing {
+        hub.set_role(Role::Lead, Some(name)).map_err(|error| error.message)?;
+    }
+    if builder_missing {
+        hub.set_role(Role::Builder, Some(name)).map_err(|error| error.message)?;
+    }
+    Ok(())
 }
 
 fn set_android_role(hub: &AiHub, role: &str, name: &str) -> Result<(), String> {
@@ -595,6 +604,20 @@ mod tests {
         assert_eq!(parsed["output"]["backends"][0]["has_key"], Value::Bool(true));
         assert!(!status.contains("private-test-key"), "the provider key must never be returned to Android");
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn the_shared_android_engine_registers_rebuild_controls() {
+        let session = Session::isolated(std::env::temp_dir());
+        let engine = Engine::shared(session, craft_anything_ai::tools());
+        let catalog = tool_catalog_json(&engine);
+        let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
+        for id in ["rebuild_start", "rebuild_status", "rebuild_stop"] {
+            assert!(
+                value.as_array().is_some_and(|items| items.iter().any(|item| item["id"] == id)),
+                "the shared Android engine must expose {id}"
+            );
+        }
     }
 
     #[test]
