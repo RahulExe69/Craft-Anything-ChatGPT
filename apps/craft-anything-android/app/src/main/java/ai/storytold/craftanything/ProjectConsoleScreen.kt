@@ -97,13 +97,13 @@ internal fun ProjectConsolePanel(
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row {
-                Text("Build output", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text("Build activity", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text(lines.size.toString() + " events", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
             }
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF101015)), shape = RoundedCornerShape(16.dp)) {
                 if (lines.isEmpty()) {
                     Text(
-                        "No build output yet. Start a build or dependency task and its command activity will appear here.",
+                        "No build activity yet. Start a build or dependency task to see the engine's recent progress events here.",
                         modifier = Modifier.padding(14.dp),
                         color = Color(0xFF9A97A8),
                         style = MaterialTheme.typography.bodySmall

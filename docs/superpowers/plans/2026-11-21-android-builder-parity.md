@@ -50,7 +50,7 @@ The source product's main loop is Study → Build → Check → Ready. Its workb
 - Add a Console tab that detects common ecosystem manifests and lockfiles, recommends a manager command, and asks the existing AI builder to perform installation/checks.
 - Show the source product's Study → Build → Check → Ready lifecycle in the native project workspace, with explicit Needs you / Paused states.
 - Export project source as a ZIP through Android's Storage Access Framework, excluding dependency/cache folders and likely secret/key files by default.
-- Show recent build activity/output in a monospaced console.
+- Show recent structured engine activity events in a monospaced Build activity panel. It is not yet a raw stdout/stderr stream or interactive terminal session.
 - Explicitly explain that the current APK does not bundle Node.js or desktop package managers; the builder must check its actual execution environment and report missing commands rather than claim success.
 - Add parser and safe-write tests.
 
@@ -59,7 +59,7 @@ The source product's main loop is Study → Build → Check → Ready. Its workb
 ### P0 — Android workspace integrity
 - Verify actual generated projects on a physical ARM64 device: create, follow-up, stop/recover, source save/reopen, preview and SAF export.
 - Add preview viewport profiles and robust preview lifecycle management.
-- Add project ZIP export through Android Storage Access Framework.
+- The source ZIP export is implemented; verify its save destination, exclusions and reopening on a physical Android device.
 - Add file diff/restore with snapshots before AI edits.
 
 ### P1 — Real build/runtime capability
