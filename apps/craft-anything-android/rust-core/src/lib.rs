@@ -20,7 +20,10 @@ fn tool_catalog_json(engine: &Engine) -> String {
             "title": tool.title,
             "summary": tool.summary,
             "toolset": tool.toolset.id(),
+            "toolset_title": tool.toolset.title(),
             "effects": tool.effects.bits(),
+            "requires_consent": tool.effects.needs_consent(),
+            "input_schema": (tool.input_schema)(),
         })
     }).collect();
 
@@ -117,6 +120,20 @@ mod tests {
             items.iter().any(|item| item["id"] == "core_target_open")
         });
         assert!(includes_open, "the Android catalogue must expose core_target_open");
+    }
+
+
+    #[test]
+    fn catalogue_exposes_input_schemas_and_consent_requirements() {
+        let catalog = tool_catalog_json(&test_engine());
+        let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
+        let items = value.as_array().unwrap_or(&[]);
+        assert!(items.iter().all(|item| item["input_schema"].is_object()));
+        assert!(items.iter().all(|item| item["requires_consent"].is_boolean()));
+        assert!(
+            items.iter().any(|item| item["requires_consent"] == Value::Bool(true)),
+            "the registry should expose at least one consent-gated tool"
+        );
     }
 
     #[test]
