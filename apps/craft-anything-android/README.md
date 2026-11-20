@@ -45,11 +45,11 @@ gradle :app:connectedDebugAndroidTest
 
 ## Current implementation
 
-- Native Compose app shell with Home, Projects, Tools and Settings navigation.
+- Native Compose app shell with Home, Projects, Evidence, Tools and Settings navigation.
 - Android app initialisation configures the Rust engine's default project location under app-private `filesDir/projects`, so project metadata stays inside the app sandbox.
-- Projects screen lists projects from the real engine registry, shows status and pending questions, and opens a project overview with conversation and question counts.
-- Evidence screen reads the active session's compact evidence bundle and unknowns list from the engine, showing each record's confidence, coverage, limitations and each open question's severity/status.
-- Android Storage Access Framework file selection, bounded to 512 MiB and copied into app-private storage before the Rust engine receives a path.
+- Projects screen lists projects from the real engine registry, shows status and pending questions, opens a project overview, and lets the user answer inbox questions or allow/deny a pending project action through `project_inbox_answer`.
+- Evidence screen reads the active session's compact evidence bundle and unknowns list from the engine, showing each record's confidence, coverage, limitations and each recorded question's severity/status.
+- Android Storage Access Framework file selection, bounded to 512 MiB and copied into app-private storage before the Rust engine receives a path; a sanitized original file extension is preserved for format detection.
 - Rust JNI bridge for engine version, the real registered tool catalogue and tool dispatch.
 - Searchable, toolset-grouped tool browser with engine-provided input schemas and a JSON parameter editor.
 - One-time confirmation for tools whose Rust effect flags require consent (foreign-code execution or connected-device mutation); approval is forwarded only for that invocation.
