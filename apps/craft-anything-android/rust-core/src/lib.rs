@@ -130,7 +130,9 @@ mod tests {
     fn catalogue_exposes_input_schemas_and_consent_requirements() {
         let catalog = tool_catalog_json(&test_engine());
         let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
-        let items = value.as_array().unwrap_or(&[]);
+        assert!(value.is_array(), "the tool catalogue must be a JSON array");
+        let empty_items: Vec<Value> = Vec::new();
+        let items = value.as_array().unwrap_or(&empty_items);
         assert!(items.iter().all(|item| item["input_schema"].is_object()));
         assert!(items.iter().all(|item| item["requires_consent"].is_boolean()));
         assert!(
