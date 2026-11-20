@@ -15,7 +15,7 @@ class ProjectArchiveExporterTest {
         try {
             root.resolve("src").mkdirs()
             root.resolve("src/App.kt").writeText("fun main() = Unit")
-            root.resolve("package.json").writeText("{\\"scripts\\":{}}")
+            root.resolve("package.json").writeText("""{"scripts":{}}""")
             root.resolve(".env").writeText("TOKEN=secret")
             root.resolve("node_modules/pkg/index.js").also {
                 it.parentFile.mkdirs()
