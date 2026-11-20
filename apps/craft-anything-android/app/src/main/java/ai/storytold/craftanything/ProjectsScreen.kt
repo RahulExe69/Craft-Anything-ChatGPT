@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
 import org.json.JSONObject
@@ -46,6 +47,21 @@ internal data class NativeProject(
     val waiting: Int,
     val stack: String
 )
+
+internal fun parseBuildActivity(response: String): List<String> {
+    return runCatching {
+        val envelope = JSONObject(response)
+        if (!envelope.optBoolean("ok")) return emptyList()
+        val result = envelope.optJSONObject("output")?.optJSONObject("result") ?: return emptyList()
+        val lines = result.optJSONArray("lines") ?: JSONArray()
+        buildList {
+            for (index in 0 until lines.length()) {
+                val line = lines.optString(index).trim()
+                if (line.isNotEmpty()) add(line)
+            }
+        }
+    }.getOrDefault(emptyList())
+}
 
 internal fun parseProjectList(response: String): List<NativeProject> {
     return runCatching {
@@ -82,6 +98,11 @@ internal fun ProjectsScreen(
     onOpenProject: (String) -> Unit,
     onCloseDetails: () -> Unit,
     onAnswer: (projectFolder: String, id: String, choice: String?, text: String?, allow: Boolean?) -> Unit = { _, _, _, _, _ -> },
+    buildStatusJson: String = "",
+    activityJson: String = "",
+    activityError: String = "",
+    activityMessage: String = "",
+    onStopBuild: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val projects = remember(projectsJson) { parseProjectList(projectsJson) }
@@ -134,7 +155,15 @@ internal fun ProjectsScreen(
         }
 
         if (detailResult != null) {
-            ProjectDetails(detailResult, onAnswer)
+            ProjectDetails(
+                project = detailResult,
+                onAnswer = onAnswer,
+                buildStatusJson = buildStatusJson,
+                activityJson = activityJson,
+                activityError = activityError,
+                activityMessage = activityMessage,
+                onStopBuild = onStopBuild
+            )
         } else if (projects.isEmpty() && !loading) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -207,7 +236,12 @@ internal fun ProjectsScreen(
 @Composable
 private fun ProjectDetails(
     project: JSONObject,
-    onAnswer: (projectFolder: String, id: String, choice: String?, text: String?, allow: Boolean?) -> Unit
+    onAnswer: (projectFolder: String, id: String, choice: String?, text: String?, allow: Boolean?) -> Unit,
+    buildStatusJson: String,
+    activityJson: String,
+    activityError: String,
+    activityMessage: String,
+    onStopBuild: (String) -> Unit
 ) {
     val conversation = project.optJSONObject("conversation")
     val questions = project.optJSONArray("questions")
@@ -232,12 +266,101 @@ private fun ProjectDetails(
             MetricCard("Conversation", (conversation?.optInt("total") ?: 0).toString(), Modifier.weight(1f))
             MetricCard("Waiting", project.optInt("waiting").toString(), Modifier.weight(1f))
         }
+        BuildActivityPanel(
+            projectFolder = folder,
+            fallbackStatus = project.optString("status_label", project.optString("status")),
+            statusJson = buildStatusJson,
+            activityJson = activityJson,
+            error = activityError,
+            message = activityMessage,
+            onStopBuild = onStopBuild
+        )
         if (questions != null && questions.length() > 0) {
             Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             for (index in 0 until questions.length()) {
                 val request = questions.optJSONObject(index) ?: continue
                 key(folder, request.optString("id")) {
                     ProjectInboxCard(request, folder, onAnswer)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BuildActivityPanel(
+    projectFolder: String,
+    fallbackStatus: String,
+    statusJson: String,
+    activityJson: String,
+    error: String,
+    message: String,
+    onStopBuild: (String) -> Unit
+) {
+    val status = remember(statusJson) {
+        runCatching {
+            JSONObject(statusJson).optJSONObject("output")?.optJSONObject("result")
+        }.getOrNull()
+    }
+    val lines = remember(activityJson) { parseBuildActivity(activityJson) }
+    val running = status?.optBoolean("running") == true
+    val queuePosition = status?.opt("queued")?.takeUnless { it == JSONObject.NULL }?.toString()
+    val currentStatus = when {
+        running -> "Building now"
+        queuePosition != null -> "Queued · position $queuePosition"
+        else -> status?.optString("status_label")?.takeIf { !it.isNullOrBlank() } ?: fallbackStatus
+    }
+    val note = status?.optString("note").orEmpty()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF171720)),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Live build activity", fontWeight = FontWeight.Bold)
+                    Text(
+                        currentStatus,
+                        color = if (running || queuePosition != null) Color(0xFF9B7BFF) else Color(0xFFB9B5C6),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                if (running || queuePosition != null) {
+                    OutlinedButton(onClick = { onStopBuild(projectFolder) }) {
+                        Text("Stop build")
+                    }
+                }
+            }
+            if (note.isNotBlank()) {
+                Text(note, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+            }
+            if (message.isNotBlank()) {
+                Text(message, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+            }
+            if (error.isNotBlank()) {
+                Text(error, color = Color(0xFFFFA9B8), style = MaterialTheme.typography.bodySmall)
+            }
+            Text("What the builder is doing", fontWeight = FontWeight.SemiBold)
+            if (lines.isEmpty()) {
+                Text(
+                    "No activity has been recorded yet. The first planning or build event will appear here.",
+                    color = Color(0xFF9A97A8),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                lines.takeLast(40).asReversed().forEach { line ->
+                    val warning = line.contains("FAIL", ignoreCase = true) || line.contains("ERROR", ignoreCase = true)
+                    Text(
+                        line,
+                        color = if (warning) Color(0xFFFFA9B8) else Color(0xFFCFCCD9),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        maxLines = 4
+                    )
                 }
             }
         }
