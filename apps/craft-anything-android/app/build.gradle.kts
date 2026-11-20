@@ -69,4 +69,8 @@ val buildRustAndroid by tasks.registering(Exec::class) {
     outputs.dir(rustJniLibs)
 }
 
-tasks.named("preBuild").configure { dependsOn(buildRustAndroid) }
+tasks.matching {
+    it.name == "mergeDebugJniLibFolders" || it.name == "mergeReleaseJniLibFolders"
+}.configureEach {
+    dependsOn(buildRustAndroid)
+}
