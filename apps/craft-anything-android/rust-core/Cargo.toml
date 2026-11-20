@@ -18,3 +18,4 @@ craft-anything-engine = { workspace = true }
 craft-anything-evidence = { workspace = true }
 serde_json = { workspace = true }
 jni = "0.21"
+log = { workspace = true }
