@@ -173,7 +173,7 @@ class ProjectsScreenTest {
                 onRefresh = {},
                 onOpenProject = {},
                 onCloseDetails = {},
-                onAnswer = { id, choice, text, allow ->
+                onAnswer = { _, id, choice, text, allow ->
                     answer.set(listOf(id, choice.orEmpty(), text.orEmpty(), allow?.toString().orEmpty()))
                 }
             )
