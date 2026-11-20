@@ -40,15 +40,21 @@ internal fun BuildScreen(
     onBackendSelected: (String) -> Unit,
     starting: Boolean,
     feedback: String,
+    importedTargetPath: String,
+    onChooseTarget: () -> Unit,
     onStartBuild: (String) -> Unit,
     onOpenProjects: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var request by remember { mutableStateOf("") }
-    var target by remember { mutableStateOf("") }
+    var target by remember { mutableStateOf(importedTargetPath) }
     var generateAssets by remember { mutableStateOf(false) }
     var backendMenu by remember { mutableStateOf(false) }
     var confirmParams by remember { mutableStateOf<String?>(null) }
+
+    androidx.compose.runtime.LaunchedEffect(importedTargetPath) {
+        if (importedTargetPath.isNotBlank()) target = importedTargetPath
+    }
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
@@ -75,13 +81,16 @@ internal fun BuildScreen(
                 OutlinedTextField(
                     value = target,
                     onValueChange = { target = it },
-                    label = { Text("Reference URL or local path (optional)") },
-                    placeholder = { Text("https://example.com or /storage/emulated/0/…") },
+                    label = { Text("Reference URL or imported local file (optional)") },
+                    placeholder = { Text("https://example.com or import a file below") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                OutlinedButton(onClick = onChooseTarget, modifier = Modifier.fillMaxWidth()) {
+                    Text("Import a local reference file")
+                }
                 Text(
-                    "Leave the reference empty to start from your description alone. A URL lets the builder study a website; a local path is for a file or app you can access.",
+                    "Leave the reference empty to start from your description alone. URLs let the builder study a website. Imported files are copied into this app's private storage before the builder reads them.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
