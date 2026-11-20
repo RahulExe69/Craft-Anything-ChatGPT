@@ -63,7 +63,7 @@ internal fun ProjectConsolePanel(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                             }
-                            Text("DETECTED", color = Color(0xFF8BD7AC), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Text("MANIFEST", color = Color(0xFF8BD7AC), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         }
                         Text(
                             setup.command,
@@ -88,7 +88,7 @@ internal fun ProjectConsolePanel(
             Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("Execution environment", fontWeight = FontWeight.SemiBold, color = Color(0xFFFFD18A))
                 Text(
-                    "This APK does not bundle Node.js or desktop package managers. The builder must verify the runtime on its execution target first; missing tools or failed installs must stay visible here instead of being marked complete.",
+                    "This APK bundles the Craft Anything Rust engine, not Node.js, npm/pnpm/Yarn/Bun, Python, Go, Cargo or a desktop Gradle toolchain. The builder must verify the runtime on its actual execution target first; a missing tool or failed install must remain visible instead of being marked complete.",
                     color = Color(0xFFE4D8C4),
                     style = MaterialTheme.typography.bodySmall
                 )

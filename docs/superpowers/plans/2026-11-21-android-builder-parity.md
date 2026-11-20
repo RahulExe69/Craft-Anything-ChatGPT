@@ -48,6 +48,7 @@ The source product's main loop is Study → Build → Check → Ready. Its workb
 
 - Make text source files editable in the project workspace, with a 256 KB cap, path traversal rejection, symlink rejection and atomic save.
 - Add a Console tab that detects common ecosystem manifests and lockfiles, recommends a manager command, and asks the existing AI builder to perform installation/checks.
+- Show the source product's Study → Build → Check → Ready lifecycle in the native project workspace, with explicit Needs you / Paused states.
 - Show recent build activity/output in a monospaced console.
 - Explicitly explain that the current APK does not bundle Node.js or desktop package managers; the builder must check its actual execution environment and report missing commands rather than claim success.
 - Add parser and safe-write tests.

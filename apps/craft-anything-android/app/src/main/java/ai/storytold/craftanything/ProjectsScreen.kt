@@ -471,6 +471,10 @@ private fun ProjectDetails(
                 }
             }
         }
+        ProjectPhaseStepper(
+            status = project.optString("status"),
+            statusLabel = project.optString("status_label", project.optString("status").replace('_', ' ').replaceFirstChar { it.uppercase() })
+        )
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(7.dp)
