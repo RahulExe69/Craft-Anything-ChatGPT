@@ -24,8 +24,7 @@ fn settings_for_app_data_dir(app_data_dir: &str) -> Result<Settings, String> {
     std::fs::create_dir_all(&engines_dir).map_err(|error| format!("Couldn't create the private engines directory: {error}"))?;
     let settings_path = root.join("config.toml");
     let mut settings = match std::fs::read_to_string(&settings_path) {
-        Ok(contents) => craft_anything_engine::settings::read_settings(&contents)
-            .map_err(|error| format!("Couldn't load Android app settings: {error}"))?,
+        Ok(contents) => craft_anything_engine::settings::read_settings(&contents).map_err(|error| format!("Couldn't load Android app settings: {error}"))?,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Settings::default(),
         Err(error) => return Err(format!("Couldn't read Android app settings: {error}")),
     };
@@ -46,22 +45,15 @@ fn initialize_engine(app_data_dir: &str) -> Result<(), String> {
     let configured = engine()?.clone();
     if AI_HUB.get().is_none() {
         let root = std::path::PathBuf::from(app_data_dir);
-        let hub = AiHub::with_stores(
-            configured,
-            root.join("config.toml"),
-            KeyStore::at_config_dir(&root),
-        );
+        let hub = AiHub::with_stores(configured, root.join("config.toml"), KeyStore::at_config_dir(&root));
         let _ = AI_HUB.set(hub);
     }
     Ok(())
 }
 
 fn engine() -> Result<&'static Arc<Engine>, String> {
-    ENGINE
-        .get()
-        .ok_or_else(|| "The Rust engine has not been initialized.".to_string())
+    ENGINE.get().ok_or_else(|| "The Rust engine has not been initialized.".to_string())
 }
-
 
 fn ai_hub() -> Result<&'static AiHub, String> {
     AI_HUB.get().ok_or_else(|| "The AI runtime has not been initialized.".to_string())
@@ -120,8 +112,7 @@ struct AndroidBackendInput {
 }
 
 fn add_android_backend(hub: &AiHub, json: &str) -> Result<(), String> {
-    let input: AndroidBackendInput =
-        serde_json::from_str(json).map_err(|error| format!("Invalid provider settings: {error}"))?;
+    let input: AndroidBackendInput = serde_json::from_str(json).map_err(|error| format!("Invalid provider settings: {error}"))?;
     let name = input.name.trim();
     let model = input.model.trim();
     if name.is_empty() {
@@ -139,14 +130,7 @@ fn add_android_backend(hub: &AiHub, json: &str) -> Result<(), String> {
     }
     let lead_missing = hub.chosen(Role::Lead).is_none();
     let builder_missing = hub.chosen(Role::Builder).is_none();
-    let config = BackendConfig {
-        name: name.to_string(),
-        kind: input.kind,
-        model: model.to_string(),
-        base_url,
-        ssh_host: None,
-        enabled: true,
-    };
+    let config = BackendConfig { name: name.to_string(), kind: input.kind, model: model.to_string(), base_url, ssh_host: None, enabled: true };
     hub.add_backend(config, input.key).map_err(|error| error.message)?;
     if lead_missing {
         hub.set_role(Role::Lead, Some(name)).map_err(|error| error.message)?;
@@ -214,21 +198,15 @@ fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_gran
 // Keep the JNI ABI naming in jni-rs' audited attribute macro. This avoids hand-written
 // unsafe symbol attributes and lets the bridge crate forbid unsafe code outright.
 mod jni_exports {
-    use super::{
-        add_android_backend, ai_chat, ai_error, ai_hub, ai_ok, ai_status_json, dispatch_tool,
-        engine, set_android_role, tool_catalog_json,
-    };
+    use super::{add_android_backend, ai_chat, ai_error, ai_hub, ai_ok, ai_status_json, dispatch_tool, engine, set_android_role, tool_catalog_json};
     use jni::errors::ThrowRuntimeExAndDefault;
     use jni::objects::{JObject, JString};
     use jni::sys::{jboolean, jstring};
-    use jni::{jni_mangle, EnvUnowned};
+    use jni::{EnvUnowned, jni_mangle};
 
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiStatus")]
-    pub fn native_ai_status<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-    ) -> jstring {
+    pub fn native_ai_status<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let response = match ai_hub() {
@@ -241,11 +219,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiAddBackend")]
-    pub fn native_ai_add_backend<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        input: JString<'frame>,
-    ) -> jstring {
+    pub fn native_ai_add_backend<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, input: JString<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let input = input.try_to_string(env)?;
@@ -259,12 +233,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiSetBackendKey")]
-    pub fn native_ai_set_backend_key<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        name: JString<'frame>,
-        key: JString<'frame>,
-    ) -> jstring {
+    pub fn native_ai_set_backend_key<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, name: JString<'frame>, key: JString<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let name = name.try_to_string(env)?;
@@ -279,12 +248,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiSetRole")]
-    pub fn native_ai_set_role<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        role: JString<'frame>,
-        name: JString<'frame>,
-    ) -> jstring {
+    pub fn native_ai_set_role<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, role: JString<'frame>, name: JString<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let role = role.try_to_string(env)?;
@@ -299,12 +263,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiSetEnabled")]
-    pub fn native_ai_set_enabled<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        name: JString<'frame>,
-        enabled: jboolean,
-    ) -> jstring {
+    pub fn native_ai_set_enabled<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, name: JString<'frame>, enabled: jboolean) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let name = name.try_to_string(env)?;
@@ -318,11 +277,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiRemoveBackend")]
-    pub fn native_ai_remove_backend<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        name: JString<'frame>,
-    ) -> jstring {
+    pub fn native_ai_remove_backend<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, name: JString<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let name = name.try_to_string(env)?;
@@ -336,11 +291,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiStartChat")]
-    pub fn native_ai_start_chat<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        backend: JString<'frame>,
-    ) -> jstring {
+    pub fn native_ai_start_chat<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, backend: JString<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let backend = backend.try_to_string(env)?;
@@ -363,11 +314,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiSendChatMessage")]
-    pub fn native_ai_send_chat_message<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        message: JString<'frame>,
-    ) -> jstring {
+    pub fn native_ai_send_chat_message<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, message: JString<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let message = message.try_to_string(env)?;
@@ -388,10 +335,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiPollChatEvents")]
-    pub fn native_ai_poll_chat_events<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-    ) -> jstring {
+    pub fn native_ai_poll_chat_events<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let response = {
@@ -413,12 +357,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiAnswerConsent")]
-    pub fn native_ai_answer_consent<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        call_id: JString<'frame>,
-        allow: jboolean,
-    ) -> jstring {
+    pub fn native_ai_answer_consent<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, call_id: JString<'frame>, allow: jboolean) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let call_id = call_id.try_to_string(env)?;
@@ -438,10 +377,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiStopChat")]
-    pub fn native_ai_stop_chat<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-    ) -> jstring {
+    pub fn native_ai_stop_chat<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let response = {
@@ -458,11 +394,7 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeInitialize")]
-    pub fn native_initialize<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        app_data_dir: JString<'frame>,
-    ) -> jstring {
+    pub fn native_initialize<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, app_data_dir: JString<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let path = app_data_dir.try_to_string(env)?;
@@ -476,22 +408,14 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeVersion")]
-    pub fn native_version<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-    ) -> jstring {
+    pub fn native_version<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>) -> jstring {
         unowned_env
-            .with_env(|env| -> jni::errors::Result<jstring> {
-                Ok(env.new_string(env!("CARGO_PKG_VERSION"))?.into_raw())
-            })
+            .with_env(|env| -> jni::errors::Result<jstring> { Ok(env.new_string(env!("CARGO_PKG_VERSION"))?.into_raw()) })
             .resolve::<ThrowRuntimeExAndDefault>()
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeToolCatalog")]
-    pub fn native_tool_catalog<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-    ) -> jstring {
+    pub fn native_tool_catalog<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let catalog = match engine() {
@@ -508,13 +432,7 @@ mod jni_exports {
 
     /// Dispatch one registered engine tool. Kotlin must call this away from the UI thread.
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeCallTool")]
-    pub fn native_call_tool<'frame>(
-        mut unowned_env: EnvUnowned<'frame>,
-        _this: JObject<'frame>,
-        tool_id: JString<'frame>,
-        params_json: JString<'frame>,
-        consent_granted: jboolean,
-    ) -> jstring {
+    pub fn native_call_tool<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, tool_id: JString<'frame>, params_json: JString<'frame>, consent_granted: jboolean) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let tool_id = tool_id.try_to_string(env)?;
@@ -577,16 +495,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
-
     #[test]
     fn ai_settings_keep_keys_private_and_report_roles() {
         let root = std::env::temp_dir().join(format!("craft-anything-android-ai-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&root);
-        let hub = AiHub::with_stores(
-            Arc::new(test_engine()),
-            root.join("settings.toml"),
-            KeyStore::file_only(root.join("ai-keys.toml")),
-        );
+        let hub = AiHub::with_stores(Arc::new(test_engine()), root.join("settings.toml"), KeyStore::file_only(root.join("ai-keys.toml")));
         let added = hub.add_backend(
             BackendConfig {
                 name: "Test Gemini".to_string(),
@@ -616,10 +529,7 @@ mod tests {
         let catalog = tool_catalog_json(&engine);
         let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
         for id in ["rebuild_start", "rebuild_status", "rebuild_stop"] {
-            assert!(
-                value.as_array().is_some_and(|items| items.iter().any(|item| item["id"] == id)),
-                "the shared Android engine must expose {id}"
-            );
+            assert!(value.as_array().is_some_and(|items| items.iter().any(|item| item["id"] == id)), "the shared Android engine must expose {id}");
         }
     }
 
