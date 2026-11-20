@@ -91,7 +91,7 @@ class BuildExecutionService : Service() {
                 val folder = result.optString("project").takeIf { it.isNotBlank() } ?: projectFolder
                     ?: throw IllegalStateException("The build started without a project folder.")
                 preferences.edit().putString(KEY_PROJECT_FOLDER, folder).apply()
-                updateNotification("Build started · \${File(folder).name}", folder)
+                updateNotification("Build started · ${File(folder).name}", folder)
 
                 while (serviceScope.isActive) {
                     delay(POLL_INTERVAL_MS)
@@ -106,10 +106,10 @@ class BuildExecutionService : Service() {
                     val running = status.optBoolean("running")
                     val label = status.optString("status_label").takeIf { it.isNotBlank() }
                     when {
-                        queued -> updateNotification("Queued · position \${queuedValue}", folder)
+                        queued -> updateNotification("Queued · position ${queuedValue}", folder)
                         running -> updateNotification(label?.let { "Building · $it" } ?: "Your project is building…", folder)
                         else -> {
-                            finishWithMessage("Build finished · \${File(folder).name}", folder)
+                            finishWithMessage("Build finished · ${File(folder).name}", folder)
                             return@launch
                         }
                     }
@@ -136,7 +136,7 @@ class BuildExecutionService : Service() {
                     bridge.nativeCallTool("rebuild_stop", JSONObject().put("project", folder).toString(), false),
                     "Couldn't stop this build."
                 )
-                "Stopping build · \${File(folder).name}"
+                "Stopping build · ${File(folder).name}"
             }.getOrElse { it.message ?: "Couldn't stop this build." }
             buildJob?.cancel()
             finishWithMessage(message, folder)

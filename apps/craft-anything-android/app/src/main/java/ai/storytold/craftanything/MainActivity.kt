@@ -341,7 +341,7 @@ class MainActivity : ComponentActivity() {
                         val launch = runCatching {
                             val params = JSONObject(paramsJson)
                             if (params.optString("project").isBlank() && params.optString("project_folder").isBlank()) {
-                                val folder = File(context.filesDir, "projects/build-\${java.util.UUID.randomUUID()}")
+                                val folder = File(context.filesDir, "projects/build-${java.util.UUID.randomUUID()}")
                                 params.put("project_folder", folder.absolutePath)
                             }
                             val folder = params.optString("project").ifBlank { params.optString("project_folder") }
