@@ -99,6 +99,6 @@ class EvidenceScreenTest {
         }
 
         composeRule.onNodeWithText("No evidence recorded yet").assertIsDisplayed()
-        composeRule.onNodeWithText("No open questions").assertIsDisplayed()
+        composeRule.onNodeWithText("No recorded questions").assertIsDisplayed()
     }
 }
