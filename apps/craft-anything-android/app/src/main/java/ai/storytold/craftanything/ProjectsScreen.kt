@@ -247,7 +247,7 @@ internal fun ProjectsScreen(
     onRefreshFiles: (String, String) -> Unit = { _, _ -> },
     onOpenProjectFile: (String, String, String) -> Unit = { _, _, _ -> },
     onCloseProjectFile: () -> Unit = {},
-    onSaveProjectFile: (String, String) -> Unit = { _, _ -> },
+    onSaveProjectFile: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     fileSaving: Boolean = false,
     fileSaveMessage: String = "",
     onInstallDependencies: (String, String) -> Unit = { _, _ -> },
@@ -437,7 +437,7 @@ private fun ProjectDetails(
     onRefreshFiles: (String, String) -> Unit,
     onOpenProjectFile: (String, String, String) -> Unit,
     onCloseProjectFile: () -> Unit,
-    onSaveProjectFile: (String, String) -> Unit,
+    onSaveProjectFile: (String, String, String, String) -> Unit,
     fileSaving: Boolean,
     fileSaveMessage: String,
     onInstallDependencies: (String, String) -> Unit,
@@ -528,7 +528,7 @@ private fun ProjectDetails(
                 error = filesError,
                 onRefresh = { onRefreshFiles(folder, appFolder) },
                 onOpenFile = { relativePath -> onOpenProjectFile(folder, appFolder, relativePath) },
-                onSaveFile = { path, content -> onSaveProjectFile(path, content) },
+                onSaveFile = { path, content -> onSaveProjectFile(folder, appFolder, path, content) },
                 onCloseFile = onCloseProjectFile
             )
             "Console" -> ProjectConsolePanel(
