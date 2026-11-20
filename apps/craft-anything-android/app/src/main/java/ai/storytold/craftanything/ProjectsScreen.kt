@@ -124,14 +124,22 @@ internal fun ProjectsScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (detailResult == null) {
+                    Text(
+                        "YOUR WORKSPACE",
+                        color = Color(0xFFAD91FF),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Text(
                     if (detailResult == null) "Your projects" else detailResult.optString("name", "Project"),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    if (detailResult == null) "${projects.size} projects on this device" else "Project overview",
+                    if (detailResult == null) "${projects.size} projects · this device" else "Project workspace",
                     color = Color(0xFF9A97A8),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -196,8 +204,8 @@ internal fun ProjectsScreen(
                 items(projects, key = { it.folder }) { project ->
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable { onOpenProject(project.folder) },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D)),
-                        shape = RoundedCornerShape(18.dp)
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+                        shape = RoundedCornerShape(22.dp)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -210,9 +218,16 @@ internal fun ProjectsScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    project.statusLabel.ifBlank { project.status },
-                                    color = Color(0xFF9B7BFF),
-                                    style = MaterialTheme.typography.labelSmall
+                                    project.statusLabel.ifBlank { project.status }.uppercase(),
+                                    color = if (project.waiting > 0) Color(0xFFFFD38D) else Color(0xFFBEACFF),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .background(
+                                            if (project.waiting > 0) Color(0xFF3A3021) else Color(0xFF2A2538),
+                                            RoundedCornerShape(50)
+                                        )
+                                        .padding(horizontal = 9.dp, vertical = 5.dp)
                                 )
                             }
                             Text(
