@@ -38,7 +38,7 @@ fn initialize_engine(app_data_dir: &str) -> Result<(), String> {
     if ENGINE.get().is_none() {
         let settings = settings_for_app_data_dir(app_data_dir)?;
         let root = std::path::PathBuf::from(app_data_dir);
-        let mut session = Session::isolated(root.clone());
+        let mut session = Session::isolated(&root);
         session.settings = settings;
         let configured = Engine::shared(session, craft_anything_ai::tools());
         let _ = ENGINE.set(configured);
@@ -214,7 +214,10 @@ fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_gran
 // Keep the JNI ABI naming in jni-rs' audited attribute macro. This avoids hand-written
 // unsafe symbol attributes and lets the bridge crate forbid unsafe code outright.
 mod jni_exports {
-    use super::{dispatch_tool, engine, tool_catalog_json};
+    use super::{
+        add_android_backend, ai_chat, ai_error, ai_hub, ai_ok, ai_status_json, dispatch_tool,
+        engine, set_android_role, tool_catalog_json,
+    };
     use jni::errors::ThrowRuntimeExAndDefault;
     use jni::objects::{JObject, JString};
     use jni::sys::{jboolean, jstring};
@@ -305,7 +308,7 @@ mod jni_exports {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let name = name.try_to_string(env)?;
-                let response = match ai_hub().and_then(|hub| hub.set_enabled(&name, enabled != 0).map_err(|error| error.message)) {
+                let response = match ai_hub().and_then(|hub| hub.set_enabled(&name, enabled).map_err(|error| error.message)) {
                     Ok(changed) => ai_ok(serde_json::json!({ "changed": changed })),
                     Err(error) => ai_error(error),
                 };
@@ -423,7 +426,7 @@ mod jni_exports {
                     let mut slot = ai_chat().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                     match slot.as_mut() {
                         Some(conversation) => {
-                            conversation.answer_consent(&call_id, allow != 0);
+                            conversation.answer_consent(&call_id, allow);
                             serde_json::json!({ "ok": true }).to_string()
                         }
                         None => ai_error("There is no active AI conversation."),
@@ -608,7 +611,7 @@ mod tests {
 
     #[test]
     fn the_shared_android_engine_registers_rebuild_controls() {
-        let session = Session::isolated(std::env::temp_dir());
+        let session = Session::isolated(&std::env::temp_dir());
         let engine = Engine::shared(session, craft_anything_ai::tools());
         let catalog = tool_catalog_json(&engine);
         let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
