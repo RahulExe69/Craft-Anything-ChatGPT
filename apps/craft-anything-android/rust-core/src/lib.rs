@@ -204,7 +204,6 @@ mod jni_exports {
     use jni::sys::{jboolean, jstring};
     use jni::{EnvUnowned, jni_mangle};
 
-
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiStatus")]
     pub fn native_ai_status<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>) -> jstring {
         unowned_env
@@ -233,7 +232,12 @@ mod jni_exports {
     }
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiSetBackendKey")]
-    pub fn native_ai_set_backend_key<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, name: JString<'frame>, key: JString<'frame>) -> jstring {
+    pub fn native_ai_set_backend_key<'frame>(
+        mut unowned_env: EnvUnowned<'frame>,
+        _this: JObject<'frame>,
+        name: JString<'frame>,
+        key: JString<'frame>,
+    ) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let name = name.try_to_string(env)?;
@@ -295,8 +299,7 @@ mod jni_exports {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let backend = backend.try_to_string(env)?;
-                let started = ai_hub()
-                    .and_then(|hub| hub.start((!backend.trim().is_empty()).then_some(backend.as_str()), true).map_err(|error| error.message));
+                let started = ai_hub().and_then(|hub| hub.start((!backend.trim().is_empty()).then_some(backend.as_str()), true).map_err(|error| error.message));
                 let response = match started {
                     Ok(conversation) => {
                         let mut slot = ai_chat().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -432,7 +435,13 @@ mod jni_exports {
 
     /// Dispatch one registered engine tool. Kotlin must call this away from the UI thread.
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeCallTool")]
-    pub fn native_call_tool<'frame>(mut unowned_env: EnvUnowned<'frame>, _this: JObject<'frame>, tool_id: JString<'frame>, params_json: JString<'frame>, consent_granted: jboolean) -> jstring {
+    pub fn native_call_tool<'frame>(
+        mut unowned_env: EnvUnowned<'frame>,
+        _this: JObject<'frame>,
+        tool_id: JString<'frame>,
+        params_json: JString<'frame>,
+        consent_granted: jboolean,
+    ) -> jstring {
         unowned_env
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let tool_id = tool_id.try_to_string(env)?;
