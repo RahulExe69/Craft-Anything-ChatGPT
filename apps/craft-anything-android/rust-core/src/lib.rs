@@ -190,9 +190,12 @@ mod tests {
             let response = dispatch_tool(&configured_engine, "project_list", "{}", false);
             let value = serde_json::from_str::<Value>(&response).unwrap_or(Value::Null);
             assert_eq!(value["ok"], Value::Bool(true));
+            let expected_dir = projects_dir
+                .map(|directory| directory.display().to_string())
+                .unwrap_or_default();
             assert_eq!(
-                value["output"]["result"]["projects_dir"],
-                projects_dir.map(|directory| directory.display().to_string()).unwrap_or_default()
+                value["output"]["result"]["projects_dir"].as_str(),
+                Some(expected_dir.as_str())
             );
         }
         let _ = std::fs::remove_dir_all(root);
