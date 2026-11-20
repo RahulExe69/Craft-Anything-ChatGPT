@@ -302,7 +302,7 @@ private fun BuildActivityPanel(
     onStopBuild: (String) -> Unit,
     onAddBuildNote: (String, String) -> Unit
 ) {
-    var note by remember(projectFolder) { mutableStateOf("") }
+    var noteDraft by remember(projectFolder) { mutableStateOf("") }
     val status = remember(statusJson) {
         runCatching {
             JSONObject(statusJson).optJSONObject("output")?.optJSONObject("result")
@@ -353,8 +353,8 @@ private fun BuildActivityPanel(
             }
             if (running) {
                 OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
+                    value = noteDraft,
+                    onValueChange = { noteDraft = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Tell the builder what to change") },
                     placeholder = { Text("Add a page, fix the layout, explain a requirement…") },
@@ -363,10 +363,10 @@ private fun BuildActivityPanel(
                 )
                 Button(
                     onClick = {
-                        onAddBuildNote(projectFolder, note.trim())
-                        note = ""
+                        onAddBuildNote(projectFolder, noteDraft.trim())
+                        noteDraft = ""
                     },
-                    enabled = note.isNotBlank(),
+                    enabled = noteDraft.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Send direction") }
             }
