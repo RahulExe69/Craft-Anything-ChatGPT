@@ -56,12 +56,12 @@
 
 **Interfaces:**
 - Produces `FileImport.copyBounded(input: InputStream, destination: File, maxBytes: Long): Long`.
-- The UI uses the Android OpenDocument contract, invokes `core_target_open` off the main thread and displays target name, kind, size and structured errors.
+- The UI uses the Android OpenDocument contract, copies at most 512 MiB to an app-private filename with a sanitized original extension, invokes `core_target_open` off the main thread and displays target name, kind, size and structured errors.
 
-- [x] **Step 1: Write the unit tests** for successful copy, exact-limit copy, over-limit rejection and stream failure cleanup.
+- [x] **Step 1: Write the unit tests** for successful copy, exact-limit copy, over-limit rejection, stream failure cleanup, and safe filename extension preservation.
 - [ ] **Step 2: Run the Kotlin unit tests** and inspect the result; the CI test task has now been added.
 - [x] **Step 3: Implement the bounded copy helper** and remove partial output on failure.
-- [x] **Step 4: Connect the helper to the SAF picker** and render the opened target's name, kind and copied size.
+- [x] **Step 4: Connect the helper to the SAF picker**, preserve safe source extensions for engine sniffing, and render the opened target's name, kind and copied size.
 - [ ] **Step 5: Run Kotlin unit tests** and build the debug APK.
 
 ### Task 3: Make the Android project reproducible for developers
@@ -107,7 +107,7 @@
 - Modify: Rust bridge and Android navigation.
 
 **Interfaces:**
-- Expose project list/open/create and evidence browse/export through existing engine tools.
+- Expose project list/open and inbox answer flows through `project_list`, `project_show` and `project_inbox_answer`; evidence browse uses the existing session evidence tools. Project creation and evidence export remain pending.
 - Persist user-visible state using app-private storage; do not present process-memory-only results as durable.
 
 - [x] **Step 1: Add a Rust bridge test** proving `project_list` reads from the configured Android app-private projects directory; evidence-list coverage remains pending.
@@ -115,7 +115,8 @@
 - [x] **Step 3: Configure an app-private projects directory** during the first native initialisation, and wire real `project_list` / `project_show` calls into the Projects screen.
 - [x] **Step 4: Add the Compose Projects screen** for project status, waiting questions, overview metrics, and navigation back to the list, with emulator UI tests.
 - [x] **Step 5: Add the Evidence screen** for session records and unknowns, with engine-backed refresh and Compose tests for populated and empty states.
-- [ ] **Step 6: Run the bridge and emulator UI suites** on the latest source revision.
+- [x] **Step 6: Add project inbox response actions** using the engine's actual `Request` schema (`kind`, `title`, `detail`, `choices`, `allow_text`) and `project_inbox_answer`. Questions accept a selected choice or typed reply; approvals expose Allow/Deny only, with no project-wide `always` permission switch.
+- [ ] **Step 7: Run the full bridge and emulator UI suites** on this source revision.
 
 ### Task 6: Android platform adapters and AI integration
 
