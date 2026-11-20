@@ -1364,10 +1364,13 @@ dependencies = [
 name = "craft-anything-android-bridge"
 version = "0.6.1"
 dependencies = [
+ "craft-anything-ai",
  "craft-anything-engine",
  "craft-anything-evidence",
+ "craft-anything-platform",
  "jni",
  "log",
+ "serde",
  "serde_json",
 ]
 
