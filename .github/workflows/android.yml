@@ -77,6 +77,17 @@ jobs:
         working-directory: apps/craft-anything-android
         run: gradle :app:testDebugUnitTest
 
+      - name: Build debug APK
+        working-directory: apps/craft-anything-android
+        run: gradle :app:assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: craft-anything-android-debug
+          path: apps/craft-anything-android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
       - name: Enable KVM for the Android emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -93,13 +104,3 @@ jobs:
           working-directory: apps/craft-anything-android
           script: gradle :app:connectedDebugAndroidTest
 
-      - name: Build debug APK
-        working-directory: apps/craft-anything-android
-        run: gradle :app:assembleDebug
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: craft-anything-android-debug
-          path: apps/craft-anything-android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
