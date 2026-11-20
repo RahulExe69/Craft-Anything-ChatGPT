@@ -8,14 +8,14 @@ The Android edition is a native Kotlin + Jetpack Compose app backed by the share
 - Android SDK Platform 36 and Android Build Tools 36.0.0
 - Android NDK 28.2.13676358
 - Rust toolchain matching the workspace
-- Rust targets `aarch64-linux-android` and `x86_64-linux-android`
+- Rust target `aarch64-linux-android`
 - `cargo-ndk` installed and available on PATH
 - Gradle 8.13 (a Gradle wrapper has not been committed yet)
 
 Install the Rust targets and helper:
 
 ```sh
-rustup target add aarch64-linux-android x86_64-linux-android
+rustup target add aarch64-linux-android
 cargo install cargo-ndk --locked
 ```
 
@@ -28,11 +28,11 @@ gradle --build-cache --parallel :app:assembleDebug
 gradle --build-cache --parallel :app:assembleRelease
 ```
 
-Both variants are split by ABI. A regular ARM64 phone only needs the `arm64-v8a` APK; the `x86_64` APK is for emulator testing. There is no universal APK in these outputs.
+The phone-first build produces an `arm64-v8a` APK for ARM64 Android phones. The `x86_64` target is intentionally deferred with emulator testing; it can be added back when emulator support becomes a priority.
 
 The release-preview variant enables R8 minification, resource shrinking and Rust symbol stripping. It is signed with the Android debug key so it can be installed directly for testing; it is **not a production-signed release**. A production release still needs a dedicated release keystore and signing configuration.
 
-The Gradle native-library packaging task invokes cargo-ndk for both ABIs and places the resulting shared libraries under `app/src/main/jniLibs`. JVM-only tests do not need to cross-compile the Rust engine.
+The Gradle native-library packaging task invokes cargo-ndk for `arm64-v8a` and places the resulting shared library under `app/src/main/jniLibs`. Its declared inputs and outputs are Gradle-build-cacheable, so unchanged Rust native libraries can be restored without recompilation on warm CI runs. JVM-only tests do not need to cross-compile the Rust engine.
 
 ## Tests
 
@@ -70,4 +70,4 @@ The app allows cleartext traffic so a user can point an OpenAI-compatible provid
 
 ## Build verification
 
-GitHub Actions runs Rust bridge tests, Kotlin JVM tests, Compose instrumentation tests on an Android emulator and produces ABI-split debug and release-preview artifacts. Check the pull request's latest successful workflow run before installing an APK.
+GitHub Actions produces the ARM64 debug APK and runs Android JVM unit tests in parallel. Repository CI runs the Rust workspace checks. Optimized release-preview APKs are available through a manual workflow dispatch; emulator instrumentation testing is deferred until the phone-first APK is stable.

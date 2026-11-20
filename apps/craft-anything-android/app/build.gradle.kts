@@ -27,7 +27,7 @@ android {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "x86_64")
+            include("arm64-v8a")
             isUniversalApk = false
         }
     }
@@ -83,25 +83,29 @@ dependencies {
 
 val buildRustAndroid by tasks.registering(Exec::class) {
     group = "build"
-    description = "Cross-compiles the Craft Anything Rust core for Android ABIs."
+    description = "Cross-compiles the Craft Anything Rust core for ARM64 Android phones."
     workingDir = rootProject.projectDir
     commandLine(
         "cargo", "ndk",
         "-t", "arm64-v8a",
-        "-t", "x86_64",
         "-o", rustJniLibs.asFile.absolutePath,
-        "build", "--release",
+        "build", "--release", "--locked",
         "--manifest-path", rustCoreDir.file("Cargo.toml").asFile.absolutePath
     )
+    // Declare every source and toolchain input so native libraries are safe to cache across CI runs.
+    inputs.property("androidNdkVersion", "28.2.13676358")
+    inputs.property("rustToolchainVersion", "1.100.0")
+    inputs.property("androidTarget", "aarch64-linux-android")
     inputs.dir(rustCoreDir)
+    inputs.dir(workspaceRoot.resolve("crates"))
+    inputs.dir(workspaceRoot.resolve("vendor/wgpu-hal"))
     inputs.files(
         workspaceRoot.resolve("Cargo.toml"),
         workspaceRoot.resolve("Cargo.lock"),
-        fileTree(workspaceRoot.resolve("crates")) {
-            include("**/*.rs", "**/Cargo.toml")
-        }
+        workspaceRoot.resolve(".cargo/config.toml")
     )
     outputs.dir(rustJniLibs)
+    outputs.cacheIf("Native libraries are reproducible from the declared Rust and NDK inputs") { true }
 }
 
 tasks.matching {
