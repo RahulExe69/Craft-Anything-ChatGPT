@@ -45,6 +45,9 @@ jobs:
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
 
+      - name: Test the Rust bridge on the host
+        run: cargo test -p craft-anything-android-bridge --lib
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
