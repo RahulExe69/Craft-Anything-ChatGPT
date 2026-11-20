@@ -2,7 +2,7 @@
 //! without the app. Each provider has its own key, in the system keychain (or the private key
 //! file); a key is never returned, and the journal redacts `api_key` like every secret-named field.
 
-use crate::AiHub;
+use crate::{AiHub, KeyStore};
 use craft_anything_engine::EngineRef;
 use craft_anything_engine::tool::{Ctx, Effects, Requires, ToolOutput, ToolSpec, Toolset, parse_params, schema_of};
 use craft_anything_engines::assets::{AssetProvider, AssetProviders, fal};
@@ -94,7 +94,8 @@ fn hub(ctx: &Ctx<'_>) -> Result<AiHub, ToolError> {
         .get::<EngineRef>()
         .and_then(|r| r.0.upgrade())
         .ok_or_else(|| ToolError::new(ErrorCode::FeatureMissing, "Keys aren't available in this engine."))?;
-    Ok(AiHub::new(engine))
+    let config_dir = ctx.session.config_dir();
+    Ok(AiHub::with_stores(engine, config_dir.join("config.toml"), KeyStore::at_config_dir(&config_dir)))
 }
 
 fn assets_key_status(ctx: &mut Ctx<'_>, params: Value) -> Result<ToolOutput, ToolError> {
