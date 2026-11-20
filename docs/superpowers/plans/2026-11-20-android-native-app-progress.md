@@ -26,3 +26,15 @@ Task interfaces are sequential: Task 1 produces the tested Rust bridge helpers c
 
 - SAF format-detection correction: The engine's `Target::sniff` uses the filename as a tie-breaker for ZIP/APK/JAR and several extension-only formats. `FileImport.safeSuffix` now preserves a short alphanumeric extension in lowercase and falls back to `.bin` for hidden, absent, malformed or excessive extensions. Tests were added before the implementation.
 - Projects inbox correction: The engine's `Request` type is `Request { id, kind, title, detail, choices, allow_text, action, created_ms }`. The Projects screen now presents the right title/detail, choice buttons or typed-answer field, and approval Allow/Deny actions. MainActivity submits answers using `project_inbox_answer`, then reloads the project and project list. No `always=true` grant is offered.
+
+
+## Follow-up review and CI reliability fixes
+
+- Reviewed all 14 CodeRabbit findings against the current source. Addressed the actionable issues: KVM permissions before emulator boot; APK build/upload before the emulator step; Rust task input tracking across the workspace; Android INTERNET permission; Compose test callback arity and invalid import; SAF stream closure on directory failure; response-envelope validation; stale project-detail generation guards; system Back handling; stable inbox card keys; bounded scrollable tool output; duplicate target-import cleanup; and the app-level importer extraction.
+- Added `AndroidTargetImporter` to own bounded file copy, engine hand-off and cleanup. `ContentResolver.openInputStream(uri)` remains in the activity, where Android exposes provider streams.
+- Removed lazy default-engine creation. Native tool calls now return a structured not-initialized error until `nativeInitialize` has successfully configured the app-private projects directory.
+- Replaced hand-written unsafe JNI export-name attributes with jni-rs 0.22.4's `jni_mangle` proc macro and set the bridge crate's `unsafe_code = "forbid"`, in line with AGENTS.md.
+- Added JVM tests for AndroidTargetImporter success, failure cleanup and duplicate-target relocation cleanup.
+- The previous Android workflow run passed host Rust bridge tests and JVM unit tests, then failed because the emulator never appeared on ADB and timed out after the default boot wait. The APK build/upload steps were skipped in that older workflow ordering. The workflow now applies the documented KVM udev rule and builds/uploads before emulator tests.
+- The previous repo Gate run failed rustfmt on the bridge source. The bridge has been reformatted to the exact output shown by that run; confirmation is pending in the next Gate run.
+- Current branch changes after these fixes have not yet been verified by a completed Android APK workflow. No APK is claimed.
