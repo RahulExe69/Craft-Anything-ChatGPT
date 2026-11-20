@@ -80,6 +80,7 @@ class ProjectsScreenTest {
         val status = """{"ok":true,"output":{"result":{"running":true,"queued":null,"status":"building","status_label":"Building","note":"Checking the generated pages"}}}"""
         val activity = """{"ok":true,"output":{"result":{"lines":["22:00:01 stage Studying the reference","22:00:02 start Reading src/main.kt"]}}}"""
         val stopped = AtomicReference<String?>(null)
+        val direction = AtomicReference<Pair<String, String>?>(null)
         composeRule.setContent {
             ProjectsScreen(
                 projectsJson = projectResponse,
@@ -99,7 +100,6 @@ class ProjectsScreenTest {
         composeRule.onNodeWithText("Live build activity").assertIsDisplayed()
         composeRule.onNodeWithText("Building now").assertIsDisplayed()
         composeRule.onNodeWithText("22:00:02 start Reading src/main.kt").assertIsDisplayed()
-        val direction = AtomicReference<Pair<String, String>?>(null)
         composeRule.onNodeWithText("Tell the builder what to change").performTextInput("Add a settings page")
         composeRule.onNodeWithText("Send direction").performClick()
         composeRule.runOnIdle {
