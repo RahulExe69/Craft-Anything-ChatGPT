@@ -272,7 +272,8 @@ fn engine(ctx: &Ctx<'_>) -> Option<Arc<Engine>> {
 fn refresh(ctx: &Ctx<'_>, set: &mut RunSet) {
     set.set_limit(ctx.session.settings.build.parallel);
     if let Some(engine) = engine(ctx) {
-        let hub = AiHub::with_stores(engine, ctx.session.config_dir().join("config.toml"), crate::KeyStore::system());
+        let config_dir = ctx.session.config_dir();
+    let hub = AiHub::with_stores(engine, config_dir.join("config.toml"), crate::KeyStore::at_config_dir(&config_dir));
         let _ = set.poll(&hub);
     }
 }
