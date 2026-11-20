@@ -153,18 +153,21 @@ class MainActivity : ComponentActivity() {
                                 if (!folder.exists() && !folder.mkdirs()) {
                                     throw IOException("Couldn't create the private import directory.")
                                 }
-                                val copy = File.createTempFile("target-", ".bin", folder)
+                                val displayName = context.contentResolver.query(
+                                    uri,
+                                    arrayOf(OpenableColumns.DISPLAY_NAME),
+                                    null,
+                                    null,
+                                    null
+                                )?.use { cursor ->
+                                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                                } ?: uri.lastPathSegment ?: "Selected file"
+                                val copy = File.createTempFile(
+                                    "target-",
+                                    FileImport.safeSuffix(displayName),
+                                    folder
+                                )
                                 try {
-                                    val displayName = context.contentResolver.query(
-                                        uri,
-                                        arrayOf(OpenableColumns.DISPLAY_NAME),
-                                        null,
-                                        null,
-                                        null
-                                    )?.use { cursor ->
-                                        if (cursor.moveToFirst()) cursor.getString(0) else null
-                                    } ?: uri.lastPathSegment ?: "Selected file"
-
                                     val input = context.contentResolver.openInputStream(uri)
                                         ?: throw IOException("The selected document provider returned no readable stream.")
                                     val copiedBytes = FileImport.copyBounded(input, copy, MAX_IMPORT_BYTES)
