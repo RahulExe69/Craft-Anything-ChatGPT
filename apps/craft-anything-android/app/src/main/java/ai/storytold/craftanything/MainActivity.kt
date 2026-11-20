@@ -64,6 +64,14 @@ private val Violet = Color(0xFF9B7BFF)
 private val Muted = Color(0xFF9A97A8)
 private const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
 
+private fun requireOkEnvelope(response: String, fallbackMessage: String): JSONObject {
+    val payload = JSONObject(response)
+    if (!payload.optBoolean("ok")) {
+        throw IOException(payload.optString("error").takeIf { it.isNotBlank() } ?: fallbackMessage)
+    }
+    return payload
+}
+
 class MainActivity : ComponentActivity() {
     private external fun nativeInitialize(appDataDir: String): String
     private external fun nativeVersion(): String
@@ -89,6 +97,8 @@ class MainActivity : ComponentActivity() {
             var evidenceLoading by remember { mutableStateOf(false) }
             var evidenceError by remember { mutableStateOf("") }
             var projectDetailsJson by remember { mutableStateOf("") }
+            var projectRequestGeneration by remember { mutableStateOf(0) }
+            var selectedProjectFolder by remember { mutableStateOf<String?>(null) }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
@@ -98,7 +108,9 @@ class MainActivity : ComponentActivity() {
                         projectsLoading = true
                         projectsError = ""
                         val response = withContext(Dispatchers.IO) {
-                            runCatching { JSONObject(nativeCallTool("project_list", "{}", false)).toString(2) }
+                            runCatching {
+                                requireOkEnvelope(nativeCallTool("project_list", "{}", false), "Couldn't load projects.").toString(2)
+                            }
                         }
                         response.onSuccess { projectsJson = it }.onFailure {
                             projectsError = it.message ?: "Couldn't load projects."
@@ -114,8 +126,14 @@ class MainActivity : ComponentActivity() {
                         evidenceError = ""
                         val response = withContext(Dispatchers.IO) {
                             runCatching {
-                                val evidence = JSONObject(nativeCallTool("core_evidence_show", """{"detail":"summary"}""", false)).toString(2)
-                                val unknowns = JSONObject(nativeCallTool("core_unknowns_show", "{}", false)).toString(2)
+                                val evidence = requireOkEnvelope(
+                                    nativeCallTool("core_evidence_show", """{"detail":"summary"}""", false),
+                                    "Couldn't load the session evidence."
+                                ).toString(2)
+                                val unknowns = requireOkEnvelope(
+                                    nativeCallTool("core_unknowns_show", "{}", false),
+                                    "Couldn't load the session unknowns."
+                                ).toString(2)
                                 evidence to unknowns
                             }
                         }
@@ -130,21 +148,29 @@ class MainActivity : ComponentActivity() {
                 }
             }
             val openProject: (String) -> Unit = { folder ->
+                val requestGeneration = projectRequestGeneration + 1
+                projectRequestGeneration = requestGeneration
+                selectedProjectFolder = folder
+                projectDetailsJson = ""
                 scope.launch {
-                    projectDetailsJson = ""
                     val response = withContext(Dispatchers.IO) {
                         runCatching {
                             val params = JSONObject().put("project", folder).toString()
-                            JSONObject(nativeCallTool("project_show", params, false)).toString(2)
+                            requireOkEnvelope(
+                                nativeCallTool("project_show", params, false),
+                                "Couldn't open this project."
+                            ).toString(2)
                         }
                     }
-                    response.onSuccess { projectDetailsJson = it }.onFailure {
-                        projectsError = it.message ?: "Couldn't open this project."
+                    if (projectRequestGeneration == requestGeneration && selectedProjectFolder == folder) {
+                        response.onSuccess { projectDetailsJson = it }.onFailure {
+                            projectsError = it.message ?: "Couldn't open this project."
+                        }
                     }
                 }
             }
             val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                if (uri != null && nativeReady) {
+                if (uri != null && nativeReady && coreVersion.startsWith("Rust core v")) {
                     scope.launch {
                         targetResult = "Copying file into app storage…"
                         val opened = withContext(Dispatchers.IO) {
@@ -172,12 +198,10 @@ class MainActivity : ComponentActivity() {
                                         ?: throw IOException("The selected document provider returned no readable stream.")
                                     val copiedBytes = FileImport.copyBounded(input, copy, MAX_IMPORT_BYTES)
                                     val parameters = JSONObject().put("path", copy.absolutePath).toString()
-                                    val payload = JSONObject(nativeCallTool("core_target_open", parameters, false))
-                                    if (!payload.optBoolean("ok")) {
-                                        copy.delete()
-                                        throw IOException(payload.optString("error", "The Rust engine couldn't open this file."))
-                                    }
-
+                                    val payload = requireOkEnvelope(
+                                    nativeCallTool("core_target_open", parameters, false),
+                                    "The Rust engine couldn't open this file."
+                                )
                                     val target = payload.optJSONObject("output")?.optJSONObject("result")
                                     val title = target?.optString("name")?.takeIf { it.isNotBlank() } ?: displayName
                                     val kind = target?.optString("kind")?.takeIf { it.isNotBlank() } ?: "target"
@@ -195,7 +219,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } else if (uri != null) {
-                    targetResult = "The Rust core is unavailable, so this file wasn't imported."
+                    targetResult = if (nativeReady) {
+                        "The Rust core is still initializing, so this file wasn't imported. Try again in a moment."
+                    } else {
+                        "The Rust core is unavailable, so this file wasn't imported."
+                    }
                 }
             }
 
@@ -280,7 +308,13 @@ class MainActivity : ComponentActivity() {
                                 coreVersion,
                                 toolCount,
                                 targetResult,
-                                { filePicker.launch(arrayOf("*/*")) },
+                                {
+                                    if (coreVersion.startsWith("Rust core v")) {
+                                        filePicker.launch(arrayOf("*/*"))
+                                    } else {
+                                        targetResult = "The Rust core is still initializing. Try again in a moment."
+                                    }
+                                },
                                 { selected = "Tools" }
                             )
                             "Projects" -> ProjectsScreen(
@@ -290,8 +324,13 @@ class MainActivity : ComponentActivity() {
                                 detailsJson = projectDetailsJson,
                                 onRefresh = refreshProjects,
                                 onOpenProject = openProject,
-                                onCloseDetails = { projectDetailsJson = "" },
+                                onCloseDetails = {
+                                    projectRequestGeneration += 1
+                                    selectedProjectFolder = null
+                                    projectDetailsJson = ""
+                                },
                                 onAnswer = { projectFolder, requestId, choice, text, allow ->
+                                    val requestGeneration = projectRequestGeneration
                                     projectsLoading = true
                                     projectsError = ""
                                     scope.launch {
@@ -311,19 +350,24 @@ class MainActivity : ComponentActivity() {
                                                 }
 
                                                 val showParams = JSONObject().put("project", projectFolder).toString()
-                                                val detail = JSONObject(nativeCallTool("project_show", showParams, false))
-                                                if (!detail.optBoolean("ok")) {
-                                                    throw IOException(detail.optString("error", "The answer was saved, but the project couldn't be refreshed."))
-                                                }
-                                                val list = nativeCallTool("project_list", "{}", false)
-                                                Pair(detail.toString(2), list)
+                                                val detail = requireOkEnvelope(
+                                                    nativeCallTool("project_show", showParams, false),
+                                                    "The answer was saved, but the project couldn't be refreshed."
+                                                )
+                                                val list = requireOkEnvelope(
+                                                    nativeCallTool("project_list", "{}", false),
+                                                    "The answer was saved, but the project list couldn't be refreshed."
+                                                )
+                                                Pair(detail.toString(2), list.toString(2))
                                             }
                                         }
-                                        refreshed.onSuccess {
-                                            projectDetailsJson = it.first
-                                            projectsJson = it.second
-                                        }.onFailure { error ->
-                                            projectsError = error.message ?: "Couldn't send the project answer."
+                                        if (projectRequestGeneration == requestGeneration && selectedProjectFolder == projectFolder) {
+                                            refreshed.onSuccess {
+                                                projectDetailsJson = it.first
+                                                projectsJson = it.second
+                                            }.onFailure { error ->
+                                                projectsError = error.message ?: "Couldn't send the project answer."
+                                            }
                                         }
                                         projectsLoading = false
                                     }
