@@ -179,6 +179,26 @@ mod tests {
     }
 
     #[test]
+    fn project_list_uses_the_android_private_projects_directory() {
+        let root = std::env::temp_dir().join(format!("craft-anything-android-projects-{}", std::process::id()));
+        let path = root.to_string_lossy().into_owned();
+        let settings = settings_for_app_data_dir(&path);
+        assert!(settings.is_ok(), "a valid app directory should configure successfully");
+        if let Ok(settings) = settings {
+            let projects_dir = settings.projects_dir.clone();
+            let configured_engine = Engine::new(Session::new(settings));
+            let response = dispatch_tool(&configured_engine, "project_list", "{}", false);
+            let value = serde_json::from_str::<Value>(&response).unwrap_or(Value::Null);
+            assert_eq!(value["ok"], Value::Bool(true));
+            assert_eq!(
+                value["output"]["result"]["projects_dir"],
+                projects_dir.map(|directory| directory.display().to_string()).unwrap_or_default()
+            );
+        }
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn catalogue_includes_the_file_open_tool() {
         let catalog = tool_catalog_json(&test_engine());
         let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
