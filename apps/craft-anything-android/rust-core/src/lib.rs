@@ -38,7 +38,7 @@ fn initialize_engine(app_data_dir: &str) -> Result<(), String> {
     if ENGINE.get().is_none() {
         let settings = settings_for_app_data_dir(app_data_dir)?;
         let root = std::path::PathBuf::from(app_data_dir);
-        let mut session = Session::isolated(&root);
+        let mut session = Session::isolated(root.clone());
         session.settings = settings;
         let configured = Engine::shared(session, craft_anything_ai::tools());
         let _ = ENGINE.set(configured);
