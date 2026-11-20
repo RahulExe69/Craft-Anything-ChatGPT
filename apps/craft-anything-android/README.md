@@ -22,7 +22,7 @@ Build a debug APK:
 
 ```sh
 cd apps/craft-anything-android
-./gradlew assembleDebug
+gradle :app:assembleDebug
 ```
 
 The Gradle pre-build task invokes cargo-ndk and places the resulting shared libraries under
