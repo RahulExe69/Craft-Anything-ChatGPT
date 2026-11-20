@@ -27,7 +27,7 @@ From this directory:
 gradle :app:assembleDebug
 ```
 
-The Gradle pre-build task invokes cargo-ndk for arm64-v8a and x86_64 and places the resulting native libraries under `app/src/main/jniLibs`.
+The Gradle native-library packaging tasks invoke cargo-ndk for arm64-v8a and x86_64 and place the resulting shared libraries under `app/src/main/jniLibs`. JVM-only tests do not need to cross-compile the Rust engine.
 
 ## Tests
 
@@ -46,6 +46,8 @@ gradle :app:connectedDebugAndroidTest
 ## Current implementation
 
 - Native Compose app shell with Home, Projects, Tools and Settings navigation.
+- Android app initialisation configures the Rust engine's default project location under app-private `filesDir/projects`, so project metadata stays inside the app sandbox.
+- Projects screen lists projects from the real engine registry, shows status and pending questions, and opens a project overview with conversation and question counts.
 - Android Storage Access Framework file selection, bounded to 512 MiB and copied into app-private storage before the Rust engine receives a path.
 - Rust JNI bridge for engine version, the real registered tool catalogue and tool dispatch.
 - Searchable, toolset-grouped tool browser with engine-provided input schemas and a JSON parameter editor.
