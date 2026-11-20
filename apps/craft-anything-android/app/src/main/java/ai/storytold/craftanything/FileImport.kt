@@ -4,6 +4,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.util.Locale
 
 /**
  * Copies a SAF-provided stream into app-private storage with a strict byte ceiling.
@@ -12,6 +13,18 @@ import java.io.InputStream
  * callers can never accidentally pass a truncated file to the engine.
  */
 internal object FileImport {
+    /**
+     * Keeps only a short alphanumeric extension so the engine can use filename-based format
+     * tie-breaks (for example APK vs generic ZIP) without trusting a provider-supplied path.
+     */
+    fun safeSuffix(displayName: String): String {
+        val dot = displayName.lastIndexOf('.')
+        if (dot <= 0 || dot == displayName.lastIndex) return ".bin"
+        val extension = displayName.substring(dot + 1)
+        if (extension.length !in 1..12 || !extension.all { it.isLetterOrDigit() }) return ".bin"
+        return ".${extension.lowercase(Locale.ROOT)}"
+    }
+
     fun copyBounded(input: InputStream, destination: File, maxBytes: Long): Long {
         require(maxBytes >= 0) { "Maximum import size cannot be negative." }
 
