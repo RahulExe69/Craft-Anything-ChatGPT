@@ -58,6 +58,14 @@ The project should be easy to fork and bend. New features land behind a seam, no
 
 ## Open work
 
+## Android application port
+
+### R5.9 Native Android application
+Owner: open · Status: in progress
+Bring Craft Anything to Android as a native mobile app, reusing the existing Rust engine where the target and Android sandbox permit it. Preserve clear feature boundaries where desktop-only capabilities cannot be reproduced on Android.
+- [ ] Establish the Android app architecture, JNI/core bridge, platform adapters, build pipeline and feature-parity matrix — claimed: RahulExe69, branch feature/android-native-app
+
+
 Every unticked `- [ ]` line in this file is open work, under the item it belongs to.
 `cargo xtask pending` lists them all, grouped by item (`--count` for the totals). When you find
 work that's missing, add it as a `- [ ]` line under the right item in the same PR, rather than
