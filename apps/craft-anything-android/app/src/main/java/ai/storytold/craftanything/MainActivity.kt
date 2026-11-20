@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity() {
             var projectRequestGeneration by remember { mutableStateOf(0) }
             var selectedProjectFolder by remember { mutableStateOf<String?>(null) }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
+            var importedTargetPath by remember { mutableStateOf("") }
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val refreshProjects: () -> Unit = {
@@ -358,7 +359,7 @@ class MainActivity : ComponentActivity() {
                                 } ?: uri.lastPathSegment ?: "Selected file"
                                 val input = context.contentResolver.openInputStream(uri)
                                     ?: throw IOException("The selected document provider returned no readable stream.")
-                                AndroidTargetImporter.import(
+                                AndroidTargetImporter.importWithPath(
                                     input = input,
                                     displayName = displayName,
                                     targetsDir = File(context.filesDir, "targets"),
@@ -369,8 +370,9 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-                        opened.onSuccess { message ->
-                            targetResult = message
+                        opened.onSuccess { imported ->
+                            targetResult = imported.message
+                            importedTargetPath = imported.path
                         }.onFailure { error ->
                             targetResult = error.message ?: "Couldn't open the selected file."
                         }
@@ -636,6 +638,8 @@ class MainActivity : ComponentActivity() {
                                 onBackendSelected = { selectedBuildBackend = it },
                                 starting = buildStarting,
                                 feedback = buildFeedback,
+                                importedTargetPath = importedTargetPath,
+                                onChooseTarget = { filePicker.launch(arrayOf("*/*")) },
                                 onStartBuild = startBuild,
                                 onOpenProjects = { selected = "Projects" },
                                 modifier = Modifier.weight(1f)
