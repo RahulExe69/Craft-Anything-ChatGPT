@@ -80,6 +80,103 @@ private fun requireOkEnvelope(response: String, fallbackMessage: String): JSONOb
     return payload
 }
 
+private val projectTextExtensions = setOf(
+    "kt", "kts", "java", "xml", "json", "md", "txt", "html", "htm", "js", "jsx",
+    "ts", "tsx", "css", "scss", "sass", "yml", "yaml", "toml", "gradle", "properties",
+    "sh", "py", "rs", "swift", "dart", "go", "c", "h", "cpp", "sql", "svg", "vue",
+    "svelte", "graphql", "gql", "proto", "ini", "cfg", "conf", "gitignore", "env"
+)
+private val skippedProjectDirectories = setOf(
+    ".git", "node_modules", ".gradle", ".idea", "Pods", "target", ".next", ".turbo", ".cache", "build"
+)
+
+internal fun listProjectFilesJson(appFolder: String): String = runCatching {
+    val root = File(appFolder).canonicalFile
+    if (!root.isDirectory) throw IOException("The project output folder isn't available yet.")
+    val rootPrefix = root.path.trimEnd(File.separatorChar) + File.separator
+    val pending = java.util.ArrayDeque<Pair<File, Int>>()
+    pending.add(root to 0)
+    val files = JSONArray()
+    var examined = 0
+    var truncated = false
+    var total = 0
+
+    while (pending.isNotEmpty() && total < 300 && examined < 5000) {
+        val (directory, depth) = pending.removeFirst()
+        if (depth > 8) {
+            truncated = true
+            continue
+        }
+        val children = directory.listFiles()?.sortedBy { it.name.lowercase() } ?: continue
+        for (child in children) {
+            examined += 1
+            if (examined >= 5000) {
+                truncated = true
+                break
+            }
+            if (java.nio.file.Files.isSymbolicLink(child.toPath())) continue
+            val canonical = runCatching { child.canonicalFile }.getOrNull() ?: continue
+            if (!canonical.path.startsWith(rootPrefix)) continue
+            if (canonical.isDirectory) {
+                if (canonical.name !in skippedProjectDirectories && !canonical.name.startsWith(".git")) {
+                    pending.add(canonical to depth + 1)
+                }
+                continue
+            }
+            if (!canonical.isFile) continue
+            val extension = canonical.extension.lowercase()
+            val kind = if (extension in projectTextExtensions || canonical.name.startsWith(".env")) "text" else "binary"
+            val relative = canonical.relativeTo(root).path.replace(File.separatorChar, '/')
+            files.put(
+                JSONObject()
+                    .put("path", relative)
+                    .put("name", canonical.name)
+                    .put("size", canonical.length())
+                    .put("kind", kind)
+            )
+            total += 1
+            if (total >= 300 && (pending.isNotEmpty() || children.lastOrNull() != child)) truncated = true
+        }
+    }
+    JSONObject().put("ok", true).put(
+        "output",
+        JSONObject().put("result", JSONObject().put("files", files).put("truncated", truncated).put("scanned", examined))
+    ).toString()
+}.getOrElse { error ->
+    JSONObject().put("ok", false).put("error", error.message ?: "Couldn't read this project's files.").toString()
+}
+
+internal fun readProjectFileJson(appFolder: String, relativePath: String): String = runCatching {
+    if (relativePath.isBlank() || relativePath.startsWith('/') || relativePath.contains('\\')) {
+        throw IOException("That file path isn't valid.")
+    }
+    val root = File(appFolder).canonicalFile
+    if (!root.isDirectory) throw IOException("The project output folder isn't available.")
+    val candidate = File(root, relativePath).canonicalFile
+    val rootPrefix = root.path.trimEnd(File.separatorChar) + File.separator
+    if (!candidate.path.startsWith(rootPrefix) || !candidate.isFile || java.nio.file.Files.isSymbolicLink(File(root, relativePath).toPath())) {
+        throw IOException("That file isn't inside the project's output folder.")
+    }
+    if (candidate.length() > 256L * 1024L) {
+        throw IOException("This file is larger than the 256 KB source viewer limit.")
+    }
+    val bytes = candidate.readBytes()
+    if (bytes.any { it == 0.toByte() }) throw IOException("This looks like a binary file and can't be shown as source text.")
+    val text = String(bytes, Charsets.UTF_8)
+    JSONObject().put("ok", true).put(
+        "output",
+        JSONObject().put(
+            "result",
+            JSONObject()
+                .put("path", relativePath)
+                .put("content", text)
+                .put("size", bytes.size)
+        )
+    ).toString()
+}.getOrElse { error ->
+    JSONObject().put("ok", false).put("error", error.message ?: "Couldn't open this file.").toString()
+}
+
 class MainActivity : ComponentActivity() {
     private external fun nativeInitialize(appDataDir: String): String
     private external fun nativeVersion(): String
@@ -136,6 +233,16 @@ class MainActivity : ComponentActivity() {
             var buildActivityJson by remember { mutableStateOf("") }
             var buildActivityError by remember { mutableStateOf("") }
             var buildActivityMessage by remember { mutableStateOf("") }
+            var projectFilesJson by remember { mutableStateOf("""{"ok":true,"output":{"result":{"files":[],"truncated":false}}}""") }
+            var projectFilesLoading by remember { mutableStateOf(false) }
+            var projectFilesError by remember { mutableStateOf("") }
+            var projectFilesFolder by remember { mutableStateOf("") }
+            var selectedProjectFileJson by remember { mutableStateOf("") }
+            var selectedProjectFileLoading by remember { mutableStateOf(false) }
+            var previewUrl by remember { mutableStateOf("") }
+            var previewLoading by remember { mutableStateOf(false) }
+            var previewError by remember { mutableStateOf("") }
+            var previewFolder by remember { mutableStateOf("") }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             var importedTargetPath by remember { mutableStateOf("") }
             val context = LocalContext.current
@@ -358,6 +465,85 @@ class MainActivity : ComponentActivity() {
                 val folder = pendingProjectFolder ?: return@LaunchedEffect
                 pendingProjectFolder = null
                 openProject(folder)
+            }
+
+            val refreshProjectFiles: (String, String) -> Unit = { projectFolder, appFolder ->
+                projectFilesFolder = projectFolder
+                projectFilesLoading = true
+                projectFilesError = ""
+                scope.launch {
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching { listProjectFilesJson(appFolder) }
+                    }
+                    if (selectedProjectFolder == projectFolder && projectFilesFolder == projectFolder) {
+                        response.onSuccess { raw ->
+                            val payload = JSONObject(raw)
+                            if (payload.optBoolean("ok")) {
+                                projectFilesJson = payload.toString(2)
+                            } else {
+                                projectFilesError = payload.optString("error", "Couldn't read project files.")
+                            }
+                        }.onFailure {
+                            projectFilesError = it.message ?: "Couldn't read project files."
+                        }
+                        projectFilesLoading = false
+                    }
+                }
+            }
+
+            val openProjectFile: (String, String, String) -> Unit = { projectFolder, appFolder, relativePath ->
+                selectedProjectFileJson = ""
+                selectedProjectFileLoading = true
+                scope.launch {
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching {
+                            requireOkEnvelope(
+                                readProjectFileJson(appFolder, relativePath),
+                                "Couldn't open this project file."
+                            ).toString(2)
+                        }
+                    }
+                    if (selectedProjectFolder == projectFolder && projectFilesFolder == projectFolder) {
+                        response.onSuccess { selectedProjectFileJson = it }.onFailure {
+                            projectFilesError = it.message ?: "Couldn't open this project file."
+                        }
+                        selectedProjectFileLoading = false
+                    }
+                }
+            }
+
+            val startProjectPreview: (String) -> Unit = { projectFolder ->
+                if (previewFolder != projectFolder || (previewUrl.isBlank() && !previewLoading)) {
+                    previewFolder = projectFolder
+                    previewUrl = ""
+                    previewLoading = true
+                    previewError = ""
+                    scope.launch {
+                        val response = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val params = JSONObject().put("project", projectFolder).put("wait", false).toString()
+                                val payload = requireOkEnvelope(
+                                    nativeCallTool("project_preview", params, false),
+                                    "This project doesn't have a previewable website yet."
+                                )
+                                val result = payload.optJSONObject("output")?.optJSONObject("result")
+                                    ?: throw IOException("The preview server returned no address.")
+                                val url = result.optString("url")
+                                val address = Uri.parse(url)
+                                if (address.scheme != "http" || address.host != "127.0.0.1" || address.port !in 1..65535) {
+                                    throw IOException("Craft Anything returned an invalid local preview address.")
+                                }
+                                url
+                            }
+                        }
+                        if (selectedProjectFolder == projectFolder && previewFolder == projectFolder) {
+                            response.onSuccess { previewUrl = it }.onFailure {
+                                previewError = it.message ?: "Couldn't start the website preview."
+                            }
+                            previewLoading = false
+                        }
+                    }
+                }
             }
 
             val stopBuild: (String) -> Unit = { projectFolder ->
@@ -688,6 +874,17 @@ class MainActivity : ComponentActivity() {
                                 activityMessage = buildActivityMessage,
                                 onStopBuild = stopBuild,
                                 onAddBuildNote = addBuildNote,
+                                filesJson = projectFilesJson,
+                                selectedFileJson = selectedProjectFileJson,
+                                filesLoading = projectFilesLoading,
+                                filesError = projectFilesError,
+                                previewUrl = if (previewFolder == selectedProjectFolder) previewUrl else "",
+                                previewLoading = previewLoading && previewFolder == selectedProjectFolder,
+                                previewError = if (previewFolder == selectedProjectFolder) previewError else "",
+                                onRefreshFiles = refreshProjectFiles,
+                                onOpenProjectFile = openProjectFile,
+                                onCloseProjectFile = { selectedProjectFileJson = "" },
+                                onStartProjectPreview = startProjectPreview,
                                 onRefresh = refreshProjects,
                                 onOpenProject = openProject,
                                 onCloseDetails = {
@@ -698,6 +895,16 @@ class MainActivity : ComponentActivity() {
                                     buildActivityJson = ""
                                     buildActivityError = ""
                                     buildActivityMessage = ""
+                                    projectFilesJson = """{"ok":true,"output":{"result":{"files":[],"truncated":false}}}"""
+                                    projectFilesLoading = false
+                                    projectFilesError = ""
+                                    projectFilesFolder = ""
+                                    selectedProjectFileJson = ""
+                                    selectedProjectFileLoading = false
+                                    previewUrl = ""
+                                    previewLoading = false
+                                    previewError = ""
+                                    previewFolder = ""
                                 },
                                 onAnswer = { projectFolder, requestId, choice, text, allow ->
                                     val requestGeneration = projectRequestGeneration
