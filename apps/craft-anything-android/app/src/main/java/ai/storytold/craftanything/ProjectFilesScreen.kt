@@ -83,6 +83,7 @@ internal fun ProjectFilesPanel(
     filesJson: String,
     selectedFileJson: String,
     loading: Boolean,
+    selectedFileLoading: Boolean = false,
     error: String,
     onRefresh: () -> Unit,
     onOpenFile: (String) -> Unit,
@@ -98,6 +99,9 @@ internal fun ProjectFilesPanel(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (selected == null && selectedFileLoading) {
+            Text("Opening source file…", color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+        }
         if (selected != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = onCloseFile) { Text("Back to files") }
