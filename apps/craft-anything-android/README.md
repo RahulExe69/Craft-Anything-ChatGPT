@@ -1,6 +1,6 @@
 # Craft Anything for Android
 
-The Android edition is a native Kotlin + Jetpack Compose app backed by the existing Rust engine through a small JNI library.
+The Android edition is a native Kotlin + Jetpack Compose app backed by the shared Rust engine and AI runtime through JNI.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ The Android edition is a native Kotlin + Jetpack Compose app backed by the exist
 - Rust toolchain matching the workspace
 - Rust targets `aarch64-linux-android` and `x86_64-linux-android`
 - `cargo-ndk` installed and available on PATH
-- Gradle 8.13 (a Gradle wrapper is planned; it has not been committed yet)
+- Gradle 8.13 (a Gradle wrapper has not been committed yet)
 
 Install the Rust targets and helper:
 
@@ -24,41 +24,50 @@ cargo install cargo-ndk --locked
 From this directory:
 
 ```sh
-gradle :app:assembleDebug
+gradle --build-cache --parallel :app:assembleDebug
+gradle --build-cache --parallel :app:assembleRelease
 ```
 
-The Gradle native-library packaging tasks invoke cargo-ndk for arm64-v8a and x86_64 and place the resulting shared libraries under `app/src/main/jniLibs`. JVM-only tests do not need to cross-compile the Rust engine.
+Both variants are split by ABI. A regular ARM64 phone only needs the `arm64-v8a` APK; the `x86_64` APK is for emulator testing. There is no universal APK in these outputs.
+
+The release-preview variant enables R8 minification, resource shrinking and Rust symbol stripping. It is signed with the Android debug key so it can be installed directly for testing; it is **not a production-signed release**. A production release still needs a dedicated release keystore and signing configuration.
+
+The Gradle native-library packaging task invokes cargo-ndk for both ABIs and places the resulting shared libraries under `app/src/main/jniLibs`. JVM-only tests do not need to cross-compile the Rust engine.
 
 ## Tests
 
-JVM tests for bounded SAF import:
+JVM tests:
 
 ```sh
-gradle :app:testDebugUnitTest
+gradle --build-cache --parallel :app:testDebugUnitTest
 ```
 
 Compose UI tests require a booted API 35 x86_64 Android emulator:
 
 ```sh
-gradle :app:connectedDebugAndroidTest
+gradle --build-cache --parallel :app:connectedDebugAndroidTest
 ```
 
 ## Current implementation
 
-- Native Compose app shell with Home, Projects, Evidence, Tools and Settings navigation.
-- Android app initialisation configures the Rust engine's default project location under app-private `filesDir/projects`, so project metadata stays inside the app sandbox.
-- Projects screen lists projects from the real engine registry, shows status and pending questions, opens a project overview, and lets the user answer inbox questions or allow/deny a pending project action through `project_inbox_answer`.
-- Evidence screen reads the active session's compact evidence bundle and unknowns list from the engine, showing each record's confidence, coverage, limitations and each recorded question's severity/status.
-- Android Storage Access Framework file selection, bounded to 512 MiB and copied into app-private storage by a dedicated Android import adapter before the Rust engine receives a path; a sanitized original file extension is preserved for format detection. The adapter removes redundant copies when the engine reuses an already-open target.
-- Rust JNI bridge for engine version, the real registered tool catalogue and tool dispatch.
-- Searchable, toolset-grouped tool browser with engine-provided input schemas and a JSON parameter editor.
-- One-time confirmation for tools whose Rust effect flags require consent (foreign-code execution or connected-device mutation); approval is forwarded only for that invocation.
-- Structured tool results and error display.
+- Native Compose experience with Home, Build, Projects, Evidence, Tools, AI conversation and Settings.
+- App-private Android session: the engine's config directory, projects and engine store live under `filesDir`; Android app backup is disabled.
+- The Android engine is created with `Engine::shared(..., craft_anything_ai::tools())`, so its real catalogue includes the AI rebuild tools as well as the core engine tools.
+- Guided Build screen invokes the real `rebuild_start` tool, selects a configured Builder backend, accepts a website URL or an imported local reference, and asks for consent before starting the rebuild.
+- Projects screen reads actual project metadata and pending inbox items from the engine. It can open project overviews and answer inbox questions or allow/deny a pending project action.
+- Evidence screen reads the active session's evidence bundle and unknowns list from the engine.
+- Android Storage Access Framework import is bounded to 512 MiB. A dedicated adapter copies the selected file into app-private storage, preserves a sanitized extension, opens the target in the engine, and returns the engine-owned reference path to the builder.
+- AI settings support OpenAI, Anthropic, OpenRouter, Google Gemini and OpenAI-compatible endpoints. The first saved provider is assigned to Lead and Builder automatically; roles can be changed per provider.
+- AI conversations use the shared Rust AI runtime and stream events to the Compose chat screen. Provider keys are never returned through JNI. Android stores the key file in private app storage; desktop platforms continue using their system keychain where available.
+- Searchable, toolset-grouped tool browser with engine-provided schemas, JSON parameter editor, structured results and one-invocation consent.
+- Generated adaptive launcher icon, Android 13+ monochrome themed icon, and dark launch theme.
 
-## Platform boundaries
+## Android-specific boundaries still open
 
-This is an incremental Android port, not a claim of full desktop parity. Android sandbox and lifecycle constraints mean some desktop process, external-engine, capture and filesystem workflows will need Android-specific adapters or a companion desktop connection. Unsupported operations must remain unavailable or explain why; they must not pretend to succeed.
+This is an incremental port, not a claim of full desktop parity. Desktop command-line agents cannot run inside the Android sandbox and are not offered as Android providers. Project source files remain in app-private storage; user-facing export/share is still open. Long-running rebuilds do not yet have a dedicated foreground service and durable resume flow, so keep the app open while a build is running. The device does not bundle Node, desktop browsers, compilers or every package manager; some build and validation commands will need an Android-native or remote-build adapter.
+
+The app allows cleartext traffic so a user can point an OpenAI-compatible provider at a local HTTP server. HTTP requests are unencrypted; use only a trusted local network and never send public provider credentials to an untrusted endpoint.
 
 ## Build verification
 
-The GitHub Actions workflow runs Rust bridge tests, Kotlin JVM tests, Compose instrumentation tests on an Android emulator, and produces a debug APK artifact when the complete pipeline succeeds. Check the pull request's latest workflow run before installing an APK.
+GitHub Actions runs Rust bridge tests, Kotlin JVM tests, Compose instrumentation tests on an Android emulator and produces ABI-split debug and release-preview artifacts. Check the pull request's latest successful workflow run before installing an APK.
