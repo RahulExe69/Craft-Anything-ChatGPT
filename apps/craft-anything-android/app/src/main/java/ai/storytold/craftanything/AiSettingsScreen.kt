@@ -225,7 +225,7 @@ internal fun AiSettingsScreen(
                     if (providerKind == "openai_compatible") {
                         OutlinedTextField(value = baseUrl, onValueChange = { baseUrl = it }, label = { Text("Server URL") }, placeholder = { Text("http://192.168.1.20:11434/v1") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Text(
-                            "On a real phone, use your computer's local network IP—not localhost. The computer and phone must be on the same Wi-Fi.",
+                            "On a real phone, use your computer's local network IP—not localhost. The computer and phone must be on the same Wi-Fi. HTTP is unencrypted: use it only for a trusted local server and never send a public provider key to an untrusted endpoint.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
