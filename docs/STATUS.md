@@ -1,8 +1,14 @@
 # Status
 
 What works today and how it was checked. The plan, owners and order of work are in
-[ROADMAP.md](ROADMAP.md). Last updated 2026-11-09. The baseline audit on 2026-10-23 from `main` had 923 tests passing;
+[ROADMAP.md](ROADMAP.md). Last updated 2026-11-20. The baseline audit on 2026-10-23 from `main` had 923 tests passing;
 workspace clippy, layers, fmt and the secret scan of all history were clean. Chinese UI checks are listed separately below.
+
+## Android application port (R5.9, in-progress PR branch)
+
+The Android branch now has a native Compose flow for Build, Projects, Evidence, Tools, AI conversation and provider Settings. The Android engine is created with the shared AI rebuild tools, and the Build screen invokes the real `rebuild_start` tool after a user confirmation. AI provider configuration and keys share the same app-private session config directory used by queued rebuilds. The generated launcher resources include adaptive, monochrome and dark splash variants. Debug and release-preview APKs are ABI-split; the release-preview uses R8/resource shrinking and a debug signing key for installation testing.
+
+This branch revision still needs CI verification and measured APK-size results. Durable foreground rebuilds, project export/share, Android-native/remote build adapters and full end-to-end parity remain open; see [R5.9 in the roadmap](ROADMAP.md#r59-native-android-application). The release-preview APK is not production-signed.
 
 ## What works, and how it was checked
 
