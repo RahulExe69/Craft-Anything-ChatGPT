@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "apps/*", "apps/craft-anything-android/rust-core", "xtask"]
+members = ["crates/*", "apps/craft-anything", "apps/craft-anything-cli", "apps/craft-anything-web", "apps/craft-anything-android/rust-core", "xtask"]
 
 [workspace.package]
 version = "0.6.1"
