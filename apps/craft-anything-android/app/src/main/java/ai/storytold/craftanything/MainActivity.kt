@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
             var selectedProjectFolder by remember { mutableStateOf<String?>(null) }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             var importedTargetPath by remember { mutableStateOf("") }
+            var importedTargetFolder by remember { mutableStateOf("") }
             val context = LocalContext.current
             val scope = rememberCoroutineScope()
             val refreshProjects: () -> Unit = {
@@ -373,6 +374,7 @@ class MainActivity : ComponentActivity() {
                         opened.onSuccess { imported ->
                             targetResult = imported.message
                             importedTargetPath = imported.path
+                            importedTargetFolder = imported.projectFolder
                         }.onFailure { error ->
                             targetResult = error.message ?: "Couldn't open the selected file."
                         }
@@ -640,6 +642,7 @@ class MainActivity : ComponentActivity() {
                                 starting = buildStarting,
                                 feedback = buildFeedback,
                                 importedTargetPath = importedTargetPath,
+                                importedTargetFolder = importedTargetFolder,
                                 onChooseTarget = { filePicker.launch(arrayOf("*/*")) },
                                 onStartBuild = startBuild,
                                 onOpenProjects = { selected = "Projects" },
