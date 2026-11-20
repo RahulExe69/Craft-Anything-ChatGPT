@@ -180,6 +180,61 @@ internal fun readProjectFileJson(appFolder: String, relativePath: String): Strin
     JSONObject().put("ok", false).put("error", error.message ?: "Couldn't open this file.").toString()
 }
 
+internal fun writeProjectFileJson(appFolder: String, relativePath: String, content: String): String = runCatching {
+    if (relativePath.isBlank() || relativePath.startsWith('/') || relativePath.contains('\\') ||
+        relativePath.split('/').any { it.isBlank() || it == "." || it == ".." }
+    ) {
+        throw IOException("That file path isn't valid.")
+    }
+    val root = File(appFolder).canonicalFile
+    if (!root.isDirectory) throw IOException("The project output folder isn't available.")
+    val original = File(root, relativePath)
+    if (java.nio.file.Files.isSymbolicLink(original.toPath())) {
+        throw IOException("Symbolic links can't be edited from the mobile source editor.")
+    }
+    val candidate = original.canonicalFile
+    val rootPrefix = root.path.trimEnd(File.separatorChar) + File.separator
+    if (!candidate.path.startsWith(rootPrefix) || !candidate.isFile) {
+        throw IOException("Only existing files inside the project's output folder can be edited.")
+    }
+    if (candidate.length() > 256L * 1024L) {
+        throw IOException("This file is larger than the 256 KB source editor limit.")
+    }
+    val bytes = content.toByteArray(Charsets.UTF_8)
+    if (bytes.size > 256 * 1024) throw IOException("This file is larger than the 256 KB source editor limit.")
+    if (bytes.any { it == 0.toByte() }) throw IOException("Binary content can't be saved from the source editor.")
+    val parent = candidate.parentFile ?: throw IOException("The file has no parent folder.")
+    val temp = File.createTempFile(".craft-save-", ".tmp", parent)
+    try {
+        temp.writeBytes(bytes)
+        try {
+            java.nio.file.Files.move(
+                temp.toPath(),
+                candidate.toPath(),
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            java.nio.file.Files.move(
+                temp.toPath(),
+                candidate.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        }
+    } finally {
+        temp.delete()
+    }
+    JSONObject().put("ok", true).put(
+        "output",
+        JSONObject().put(
+            "result",
+            JSONObject().put("path", relativePath).put("content", content).put("size", bytes.size)
+        )
+    ).toString()
+}.getOrElse { error ->
+    JSONObject().put("ok", false).put("error", error.message ?: "Couldn't save this file.").toString()
+}
+
 class MainActivity : ComponentActivity() {
     private external fun nativeInitialize(appDataDir: String): String
     private external fun nativeVersion(): String
@@ -244,6 +299,8 @@ class MainActivity : ComponentActivity() {
             var projectFilesFolder by remember { mutableStateOf("") }
             var selectedProjectFileJson by remember { mutableStateOf("") }
             var selectedProjectFileLoading by remember { mutableStateOf(false) }
+            var projectFileSaving by remember { mutableStateOf(false) }
+            var projectFileSaveMessage by remember { mutableStateOf("") }
             var previewUrl by remember { mutableStateOf("") }
             var previewLoading by remember { mutableStateOf(false) }
             var previewError by remember { mutableStateOf("") }
@@ -548,6 +605,32 @@ class MainActivity : ComponentActivity() {
                         }
                         selectedProjectFileLoading = false
                     }
+                }
+            }
+
+
+            val saveProjectFile: (String, String, String, String) -> Unit = { projectFolder, appFolder, relativePath, content ->
+                projectFileSaving = true
+                projectFileSaveMessage = ""
+                scope.launch {
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching {
+                            requireOkEnvelope(
+                                writeProjectFileJson(appFolder, relativePath, content),
+                                "Couldn't save this source file."
+                            ).toString(2)
+                        }
+                    }
+                    if (selectedProjectFolder == projectFolder) {
+                        response.onSuccess {
+                            selectedProjectFileJson = it
+                            projectFileSaveMessage = "Saved to this device · " + relativePath.substringAfterLast('/')
+                            refreshProjectFiles(projectFolder, appFolder)
+                        }.onFailure {
+                            projectFileSaveMessage = it.message ?: "Couldn't save this source file."
+                        }
+                    }
+                    projectFileSaving = false
                 }
             }
 
@@ -931,6 +1014,20 @@ class MainActivity : ComponentActivity() {
                                         .put("resume", false)
                                         .put("rounds", 2)
                                         .toString()
+                                    projectPollGeneration += 1
+                                    startBuild(params)
+                                },
+                                onSaveProjectFile = saveProjectFile,
+                                fileSaving = projectFileSaving,
+                                fileSaveMessage = projectFileSaveMessage,
+                                onInstallDependencies = { projectFolder, prompt ->
+                                    val params = JSONObject()
+                                        .put("request", prompt)
+                                        .put("project", projectFolder)
+                                        .put("resume", false)
+                                        .put("rounds", 2)
+                                        .toString()
+                                    projectPollGeneration += 1
                                     startBuild(params)
                                 },
                                 filesJson = projectFilesJson,
@@ -961,6 +1058,8 @@ class MainActivity : ComponentActivity() {
                                     projectFilesFolder = ""
                                     selectedProjectFileJson = ""
                                     selectedProjectFileLoading = false
+                                    projectFileSaving = false
+                                    projectFileSaveMessage = ""
                                     previewUrl = ""
                                     previewLoading = false
                                     previewError = ""

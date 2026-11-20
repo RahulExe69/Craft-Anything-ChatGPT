@@ -67,6 +67,37 @@ class ProjectFilesTest {
     }
 
     @Test
+    fun savesExistingTextFileAtomicallyAndReturnsUpdatedContent() {
+        val root = Files.createTempDirectory("craft-project-save").toFile()
+        try {
+            root.resolve("src").mkdirs()
+            root.resolve("src/App.kt").writeText("fun main() = Unit")
+            val saved = JSONObject(writeProjectFileJson(root.absolutePath, "src/App.kt", "fun main() = println(42)"))
+            assertTrue(saved.optBoolean("ok"))
+            assertEquals("fun main() = println(42)", root.resolve("src/App.kt").readText())
+            assertEquals("fun main() = println(42)", saved.getJSONObject("output").getJSONObject("result").getString("content"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun refusesTraversalMissingFilesAndOversizedEdits() {
+        val parent = Files.createTempDirectory("craft-project-save-guards").toFile()
+        val root = parent.resolve("app")
+        root.mkdirs()
+        try {
+            root.resolve("safe.txt").writeText("safe")
+            assertFalse(JSONObject(writeProjectFileJson(root.absolutePath, "../outside.txt", "bad")).optBoolean("ok"))
+            assertFalse(JSONObject(writeProjectFileJson(root.absolutePath, "missing.txt", "bad")).optBoolean("ok"))
+            assertFalse(JSONObject(writeProjectFileJson(root.absolutePath, "safe.txt", "x".repeat(256 * 1024 + 1))).optBoolean("ok"))
+            assertEquals("safe", root.resolve("safe.txt").readText())
+        } finally {
+            parent.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsBinaryFilesInTheSourceViewer() {
         val root = Files.createTempDirectory("craft-project-binary").toFile()
         try {

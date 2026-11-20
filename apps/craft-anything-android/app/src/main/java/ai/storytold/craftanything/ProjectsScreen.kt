@@ -3,6 +3,7 @@ package ai.storytold.craftanything
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -245,6 +247,10 @@ internal fun ProjectsScreen(
     onRefreshFiles: (String, String) -> Unit = { _, _ -> },
     onOpenProjectFile: (String, String, String) -> Unit = { _, _, _ -> },
     onCloseProjectFile: () -> Unit = {},
+    onSaveProjectFile: (String, String) -> Unit = { _, _ -> },
+    fileSaving: Boolean = false,
+    fileSaveMessage: String = "",
+    onInstallDependencies: (String, String) -> Unit = { _, _ -> },
     onStartProjectPreview: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -327,6 +333,10 @@ internal fun ProjectsScreen(
                 onRefreshFiles = onRefreshFiles,
                 onOpenProjectFile = onOpenProjectFile,
                 onCloseProjectFile = onCloseProjectFile,
+                onSaveProjectFile = onSaveProjectFile,
+                fileSaving = fileSaving,
+                fileSaveMessage = fileSaveMessage,
+                onInstallDependencies = onInstallDependencies,
                 onStartProjectPreview = onStartProjectPreview
             )
         } else if (projects.isEmpty() && !loading) {
@@ -427,6 +437,10 @@ private fun ProjectDetails(
     onRefreshFiles: (String, String) -> Unit,
     onOpenProjectFile: (String, String, String) -> Unit,
     onCloseProjectFile: () -> Unit,
+    onSaveProjectFile: (String, String) -> Unit,
+    fileSaving: Boolean,
+    fileSaveMessage: String,
+    onInstallDependencies: (String, String) -> Unit,
     onStartProjectPreview: (String) -> Unit
 ) {
     val conversation = project.optJSONObject("conversation")
@@ -437,7 +451,7 @@ private fun ProjectDetails(
 
     LaunchedEffect(workspaceTab, folder, appFolder) {
         when (workspaceTab) {
-            "Files" -> onRefreshFiles(folder, appFolder)
+            "Code", "Console" -> onRefreshFiles(folder, appFolder)
             "Preview" -> if (previewUrl.isBlank() && !previewLoading) onStartProjectPreview(folder)
         }
     }
@@ -458,12 +472,12 @@ private fun ProjectDetails(
             }
         }
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            listOf("Chat", "Preview", "Files", "Activity").forEach { tab ->
+            listOf("Chat", "Preview", "Code", "Console", "Activity").forEach { tab ->
                 Card(
-                    modifier = Modifier.weight(1f).clickable { workspaceTab = tab },
+                    modifier = Modifier.width(82.dp).clickable { workspaceTab = tab },
                     colors = CardDefaults.cardColors(
                         containerColor = if (workspaceTab == tab) Color(0xFF30254A) else Color(0xFF17171F)
                     ),
@@ -504,15 +518,23 @@ private fun ProjectDetails(
                 onStart = { onStartProjectPreview(folder) },
                 onReload = {}
             )
-            "Files" -> ProjectFilesPanel(
+            "Code" -> ProjectFilesPanel(
                 filesJson = filesJson,
                 selectedFileJson = selectedFileJson,
                 loading = filesLoading,
                 selectedFileLoading = selectedFileLoading,
+                saving = fileSaving,
+                saveMessage = fileSaveMessage,
                 error = filesError,
                 onRefresh = { onRefreshFiles(folder, appFolder) },
                 onOpenFile = { relativePath -> onOpenProjectFile(folder, appFolder, relativePath) },
+                onSaveFile = { path, content -> onSaveProjectFile(path, content) },
                 onCloseFile = onCloseProjectFile
+            )
+            "Console" -> ProjectConsolePanel(
+                filesJson = filesJson,
+                activityJson = activityJson,
+                onInstallDependencies = { prompt -> onInstallDependencies(folder, prompt) }
             )
             "Activity" -> BuildActivityPanel(
                 projectFolder = folder,
