@@ -99,7 +99,7 @@ class ProjectsScreenTest {
 
         composeRule.onNodeWithText("Live build activity").assertIsDisplayed()
         composeRule.onNodeWithText("Building now").assertIsDisplayed()
-        composeRule.onNodeWithText("22:00:02 start Reading src/main.kt").assertIsDisplayed()
+        composeRule.onNodeWithText("start Reading src/main.kt").assertIsDisplayed()
         composeRule.onNodeWithText("Tell the builder what to change").performTextInput("Add a settings page")
         composeRule.onNodeWithText("Send direction").performClick()
         composeRule.runOnIdle {
