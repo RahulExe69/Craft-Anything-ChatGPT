@@ -43,8 +43,8 @@
 - [x] **Step 1: Write failing Rust tests** for the catalogue containing `core_target_open`, a successful `core_session_show` dispatch, and malformed JSON returning `ok: false` with a useful error.
 - [x] **Step 2: Run the bridge tests** with `cargo test -p craft-anything-android-bridge --lib`; confirm the RED result. The first run exposed both missing helpers and the JNI 0.22 `EnvUnowned` API mismatch.
 - [x] **Step 3: Extract the helpers** and make the JNI exports delegate to them; migrate native methods to `EnvUnowned::with_env` and isolate the required export attributes.
-- [ ] **Step 4: Re-run bridge tests** and the host workspace checks for the bridge.
-- [ ] **Step 5: Commit** the bridge refactor and tests.
+- [ ] **Step 4: Re-run bridge tests** and the host workspace checks for the bridge. An intermediate run on the JNI 0.22 migration completed the Rust bridge tests successfully; latest schema/consent changes still need fresh verification.
+- [x] **Step 5: Commit** the bridge refactor and tests.
 
 ### Task 2: Finish the native file-import experience
 
@@ -92,9 +92,9 @@
 - Invoke only selected registered tools through `dispatch_tool`; show structured output and errors.
 - Display consent-required effects before invocation; never silently auto-approve them.
 
-- [ ] **Step 1: Write failing UI tests** for registry rendering, search filtering and consent-required action gating.
-- [ ] **Step 2: Run UI tests** and confirm the expected screen behavior is missing.
-- [ ] **Step 3: Implement the searchable tool browser** and structured invocation UI.
+- [x] **Step 1: Write UI tests** for registry rendering, search filtering, safe-tool invocation and consent-required action gating.
+- [ ] **Step 2: Run UI tests** and inspect the result; a CI instrumentation-test task is not yet configured.
+- [x] **Step 3: Implement the searchable tool browser** and structured JSON invocation UI. Risk classification and per-invocation approval are supplied by the Rust engine catalogue and forwarded back to `Engine::call`.
 - [ ] **Step 4: Run UI tests** and verify the screen on an Android emulator.
 
 ### Task 5: Add project and evidence workflows
