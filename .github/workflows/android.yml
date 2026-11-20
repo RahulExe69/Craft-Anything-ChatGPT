@@ -67,11 +67,6 @@ jobs:
     env:
       CARGO_INCREMENTAL: "0"
       CARGO_TERM_COLOR: always
-      RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
-      SCCACHE_GHA_CACHE_TO: craft-anything-android-rust-1.100.0-arm64-v1
-      SCCACHE_GHA_CACHE_FROM: craft-anything-android-rust-1.100.0-arm64-v1
-      SCCACHE_GHA_RW_MODE: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'READ_ONLY' || 'READ_WRITE' }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -91,18 +86,13 @@ jobs:
         run: |
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.100.0"
           targets: aarch64-linux-android
-
-      - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.11
-        with:
-          version: "v0.16.0"
-          disable_annotations: true
 
       - name: Cache cargo-ndk
         id: cargo-ndk-cache
@@ -121,6 +111,7 @@ jobs:
           workspaces: ". -> target"
           shared-key: craft-anything-android-arm64-rust-1.100.0
           cache-on-failure: "true"
+          cache-workspace-crates: "true"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -132,10 +123,6 @@ jobs:
       - name: Build phone APK
         working-directory: apps/craft-anything-android
         run: gradle --build-cache --parallel :app:assembleDebug
-
-      - name: Report Rust compiler cache statistics
-        if: always()
-        run: sccache --show-stats
 
       - name: Upload phone APK
         uses: actions/upload-artifact@v4
