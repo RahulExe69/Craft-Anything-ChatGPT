@@ -78,7 +78,7 @@ class ToolsScreenTest {
 
         composeRule.onNodeWithText("Capture process").performClick()
         composeRule.onNodeWithText("Review and run").performClick()
-        composeRule.onNodeWithText("Approval required").assertIsDisplayed()
+        composeRule.onNodeWithText("Confirm this tool action").assertIsDisplayed()
         assertEquals(null, invokedTool.get())
 
         composeRule.onNodeWithText("Approve once and run").performClick()
@@ -104,6 +104,6 @@ class ToolsScreenTest {
         composeRule.runOnIdle {
             assertEquals("core_session_show", invokedTool.get())
         }
-        composeRule.onNodeWithText("Approval required").assertDoesNotExist()
+        composeRule.onNodeWithText("Confirm this tool action").assertDoesNotExist()
     }
 }
