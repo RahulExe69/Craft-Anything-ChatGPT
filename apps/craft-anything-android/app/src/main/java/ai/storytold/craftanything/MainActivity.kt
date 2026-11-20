@@ -316,7 +316,7 @@ class MainActivity : ComponentActivity() {
                                                     throw IOException(detail.optString("error", "The answer was saved, but the project couldn't be refreshed."))
                                                 }
                                                 val list = nativeCallTool("project_list", "{}", false)
-                                                Triple(detail.toString(2), list, answer)
+                                                Pair(detail.toString(2), list)
                                             }
                                         }
                                         refreshed.onSuccess {
