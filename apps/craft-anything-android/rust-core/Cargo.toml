@@ -19,8 +19,10 @@ name = "craft_anything_android"
 crate-type = ["cdylib"]
 
 [dependencies]
+craft-anything-ai = { workspace = true }
 craft-anything-engine = { workspace = true }
 craft-anything-evidence = { workspace = true }
+craft-anything-platform = { workspace = true }
 serde_json = { workspace = true }
 jni = "0.22"
 log = { workspace = true }
