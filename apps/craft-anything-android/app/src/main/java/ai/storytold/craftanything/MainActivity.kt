@@ -1,7 +1,11 @@
 package ai.storytold.craftanything
 
+import android.net.Uri
 import android.os.Bundle
+import java.io.File
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +28,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,7 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,9 +50,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
@@ -59,6 +66,7 @@ private val Muted = Color(0xFF9A97A8)
 class MainActivity : ComponentActivity() {
     private external fun nativeVersion(): String
     private external fun nativeToolCatalog(): String
+    private external fun nativeCallTool(toolId: String, paramsJson: String): String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +75,32 @@ class MainActivity : ComponentActivity() {
             var selected by remember { mutableStateOf("Home") }
             var coreVersion by remember { mutableStateOf(if (nativeReady) "Connecting to Rust core…" else "Rust core not built yet") }
             var toolCount by remember { mutableStateOf(0) }
+            var targetResult by remember { mutableStateOf("No file opened yet.") }
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+            val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                if (uri != null && nativeReady) {
+                    scope.launch {
+                        targetResult = "Copying file into app storage…"
+                        val opened = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val folder = File(context.filesDir, "targets").apply { mkdirs() }
+                                val copy = File.createTempFile("target-", ".bin", folder)
+                                val input = context.contentResolver.openInputStream(uri) ?: error("Could not read selected file")
+                                input.use { source -> copy.outputStream().use { destination -> source.copyTo(destination) } }
+                                val params = org.json.JSONObject().put("path", copy.absolutePath).toString()
+                                org.json.JSONObject(nativeCallTool("core_target_open", params))
+                            }
+                        }
+                        opened.onSuccess { payload ->
+                            targetResult = if (payload.optBoolean("ok")) {
+                                val target = payload.optJSONObject("output")?.optJSONObject("result")
+                                "Opened " + (target?.optString("name") ?: "file") + " · " + (target?.optString("kind") ?: "target")
+                            } else payload.optString("error", "The engine couldn't open this file.")
+                        }.onFailure { error -> targetResult = error.message ?: "Couldn't open the file." }
+                    }
+                }
+            }
 
             LaunchedEffect(nativeReady) {
                 if (nativeReady) {
