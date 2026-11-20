@@ -64,7 +64,8 @@ internal fun AiChatScreen(
     Column(modifier = modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Ask Craft Anything", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("AI COMPANION", style = MaterialTheme.typography.labelSmall, color = Color(0xFFAD91FF), fontWeight = FontWeight.Bold)
+                Text("Think it through together.", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (connected) {
@@ -161,26 +162,46 @@ internal fun AiChatScreen(
             }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                enabled = connected && !busy,
-                placeholder = { Text("Message Craft Anything…") },
-                modifier = Modifier.weight(1f),
-                maxLines = 4,
-            )
-            Button(
-                onClick = {
-                    val message = draft.trim()
-                    if (message.isNotEmpty()) {
-                        onSend(message)
-                        draft = ""
-                    }
-                },
-                enabled = connected && !busy && draft.isNotBlank(),
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Send")
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    enabled = connected && !busy,
+                    placeholder = { Text("Ask about your project, files or next steps…") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 1,
+                    maxLines = 5,
+                    shape = RoundedCornerShape(16.dp)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (busy) "Craft Anything is thinking…" else "Your project companion",
+                        color = Color(0xFF9A97A8),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = {
+                            val message = draft.trim()
+                            if (message.isNotEmpty()) {
+                                onSend(message)
+                                draft = ""
+                            }
+                        },
+                        enabled = connected && !busy && draft.isNotBlank(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Send")
+                    }
+                }
             }
         }
     }
