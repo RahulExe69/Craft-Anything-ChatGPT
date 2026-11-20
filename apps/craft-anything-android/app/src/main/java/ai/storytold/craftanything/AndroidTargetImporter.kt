@@ -12,6 +12,8 @@ import org.json.JSONObject
  * The activity obtains the provider stream (Android's ContentResolver API is context-bound)
  * and delegates storage and engine hand-off work here.
  */
+internal data class ImportedAndroidTarget(val message: String, val path: String)
+
 internal object AndroidTargetImporter {
     fun import(
         input: InputStream,
@@ -19,7 +21,15 @@ internal object AndroidTargetImporter {
         targetsDir: File,
         maxBytes: Long,
         openTarget: (parametersJson: String) -> String
-    ): String {
+    ): String = importWithPath(input, displayName, targetsDir, maxBytes, openTarget).message
+
+    fun importWithPath(
+        input: InputStream,
+        displayName: String,
+        targetsDir: File,
+        maxBytes: Long,
+        openTarget: (parametersJson: String) -> String
+    ): ImportedAndroidTarget {
         var copy: File? = null
         try {
             if (!targetsDir.exists() && !targetsDir.mkdirs()) {
@@ -46,7 +56,10 @@ internal object AndroidTargetImporter {
 
             val title = target?.optString("name")?.takeIf { it.isNotBlank() } ?: displayName
             val kind = target?.optString("kind")?.takeIf { it.isNotBlank() } ?: "target"
-            return "Opened $title · $kind · ${formatByteCount(copiedBytes)}"
+            return ImportedAndroidTarget(
+                message = "Opened $title · $kind · ${formatByteCount(copiedBytes)}",
+                path = enginePath ?: destination.absolutePath,
+            )
         } catch (error: Exception) {
             runCatching { input.close() }
             copy?.delete()
