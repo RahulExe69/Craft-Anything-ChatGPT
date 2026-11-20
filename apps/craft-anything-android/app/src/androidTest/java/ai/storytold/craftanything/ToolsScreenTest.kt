@@ -46,7 +46,7 @@ class ToolsScreenTest {
     @Test
     fun rendersRegisteredToolsFromTheEngineCatalogue() {
         composeRule.setContent {
-            ToolsScreen(catalogue, "Rust core v0.6.1", "", { _, _ -> })
+            ToolsScreen(catalogue, "Rust core v0.6.1", "", { _, _, _ -> })
         }
 
         composeRule.onNodeWithText("Show session").assertIsDisplayed()
@@ -72,7 +72,7 @@ class ToolsScreenTest {
                 catalogue,
                 "Rust core v0.6.1",
                 "",
-                { toolId, _ -> invokedTool.set(toolId) }
+                { toolId, _, _ -> invokedTool.set(toolId) }
             )
         }
 
