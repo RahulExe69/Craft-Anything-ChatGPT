@@ -136,7 +136,7 @@ mod jni_exports {
     #[unsafe(no_mangle)]
     pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeCallTool<'frame>(
         mut unowned_env: EnvUnowned<'frame>,
-        _class: JClass<'frame>,
+        _this: JObject<'frame>,
         tool_id: JString<'frame>,
         params_json: JString<'frame>,
         consent_granted: jboolean,
