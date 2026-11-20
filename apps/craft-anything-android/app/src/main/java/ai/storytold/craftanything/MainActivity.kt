@@ -291,6 +291,43 @@ class MainActivity : ComponentActivity() {
                                 onRefresh = refreshProjects,
                                 onOpenProject = openProject,
                                 onCloseDetails = { projectDetailsJson = "" },
+                                onAnswer = { projectFolder, requestId, choice, text, allow ->
+                                    projectsLoading = true
+                                    projectsError = ""
+                                    scope.launch {
+                                        val refreshed = withContext(Dispatchers.IO) {
+                                            runCatching {
+                                                val answerParams = JSONObject()
+                                                    .put("project", projectFolder)
+                                                    .put("id", requestId)
+                                                if (choice != null) answerParams.put("choice", choice)
+                                                if (!text.isNullOrBlank()) answerParams.put("text", text)
+                                                if (allow != null) answerParams.put("allow", allow)
+                                                val answer = JSONObject(
+                                                    nativeCallTool("project_inbox_answer", answerParams.toString(), false)
+                                                )
+                                                if (!answer.optBoolean("ok")) {
+                                                    throw IOException(answer.optString("error", "Couldn't save the answer."))
+                                                }
+
+                                                val showParams = JSONObject().put("project", projectFolder).toString()
+                                                val detail = JSONObject(nativeCallTool("project_show", showParams, false))
+                                                if (!detail.optBoolean("ok")) {
+                                                    throw IOException(detail.optString("error", "The answer was saved, but the project couldn't be refreshed."))
+                                                }
+                                                val list = nativeCallTool("project_list", "{}", false)
+                                                Triple(detail.toString(2), list, answer)
+                                            }
+                                        }
+                                        refreshed.onSuccess {
+                                            projectDetailsJson = it.first
+                                            projectsJson = it.second
+                                        }.onFailure { error ->
+                                            projectsError = error.message ?: "Couldn't send the project answer."
+                                        }
+                                        projectsLoading = false
+                                    }
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             "Evidence" -> EvidenceScreen(
