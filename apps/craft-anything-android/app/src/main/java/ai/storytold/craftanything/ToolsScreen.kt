@@ -75,6 +75,7 @@ internal fun filterToolCatalog(tools: List<NativeTool>, query: String): List<Nat
         tool.id.lowercase(Locale.ROOT).contains(needle) ||
             tool.title.lowercase(Locale.ROOT).contains(needle) ||
             tool.summary.lowercase(Locale.ROOT).contains(needle) ||
+            tool.toolset.lowercase(Locale.ROOT).contains(needle) ||
             tool.toolsetTitle.lowercase(Locale.ROOT).contains(needle)
     }
 }
@@ -122,7 +123,18 @@ internal fun ToolsScreen(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(filtered, key = { it.id }) { tool ->
+            filtered.groupBy { it.toolset }.forEach { (_, groupTools) ->
+                val groupTitle = groupTools.firstOrNull()?.toolsetTitle.orEmpty()
+                item(key = "toolset-${groupTools.firstOrNull()?.toolset.orEmpty()}") {
+                    Text(
+                        groupTitle,
+                        color = Color(0xFF9B7BFF),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                    )
+                }
+                items(groupTools, key = { it.id }) { tool ->
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable {
                         selectedId = if (selectedId == tool.id) null else tool.id
@@ -179,6 +191,7 @@ internal fun ToolsScreen(
                             }
                         }
                     }
+                }
                 }
             }
             if (filtered.isEmpty()) {
