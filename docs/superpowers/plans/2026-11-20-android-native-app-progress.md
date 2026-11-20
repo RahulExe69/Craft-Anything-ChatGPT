@@ -8,3 +8,5 @@ Task interfaces are sequential: Task 1 produces the tested Rust bridge helpers c
 
 ## Progress
 - Task 1: in progress. Contract tests for the engine catalogue, real session-status dispatch, and malformed JSON errors have been added in commit `0ae12c8`. Expected RED result: the tests do not compile until `tool_catalog_json` and `dispatch_tool` are extracted from the JNI wrappers. CI verification is pending.
+
+- Debugging note: the first CI run failed before tests because the root `apps/*` Cargo workspace glob included the Gradle-only Android app directory. Fixed by enumerating the existing Rust app crates explicitly and retaining only `apps/craft-anything-android/rust-core` as the new workspace member. The next CI run must still demonstrate the intended missing-helper RED result.
