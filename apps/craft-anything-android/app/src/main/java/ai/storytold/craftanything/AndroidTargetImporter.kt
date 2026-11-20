@@ -12,7 +12,7 @@ import org.json.JSONObject
  * The activity obtains the provider stream (Android's ContentResolver API is context-bound)
  * and delegates storage and engine hand-off work here.
  */
-internal data class ImportedAndroidTarget(val message: String, val path: String)
+internal data class ImportedAndroidTarget(val message: String, val path: String, val projectFolder: String)
 
 internal object AndroidTargetImporter {
     fun import(
@@ -59,6 +59,7 @@ internal object AndroidTargetImporter {
             return ImportedAndroidTarget(
                 message = "Opened $title · $kind · ${formatByteCount(copiedBytes)}",
                 path = enginePath ?: destination.absolutePath,
+                projectFolder = projectFolder.absolutePath,
             )
         } catch (error: Exception) {
             runCatching { input.close() }
