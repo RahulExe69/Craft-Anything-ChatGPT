@@ -9,7 +9,7 @@ publish = false
 # JNI symbol exports require an unsafe symbol-name attribute. Keep this crate denied by default
 # and isolate that unavoidable ABI boundary in one explicitly allowed module.
 [lints.rust]
-unsafe_code = "deny"
+unsafe_code = "forbid"
 
 [lints.clippy]
 dbg_macro = "warn"
