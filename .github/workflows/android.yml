@@ -75,17 +75,28 @@ jobs:
 
       - name: Test Android JVM unit tests
         working-directory: apps/craft-anything-android
-        run: gradle :app:testDebugUnitTest
+        run: gradle --build-cache --parallel :app:testDebugUnitTest
 
       - name: Build debug APK
         working-directory: apps/craft-anything-android
-        run: gradle :app:assembleDebug
+        run: gradle --build-cache --parallel :app:assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: craft-anything-android-debug
           path: apps/craft-anything-android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Build optimized release APKs
+        working-directory: apps/craft-anything-android
+        run: gradle --build-cache --parallel :app:assembleRelease
+
+      - name: Upload optimized release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: craft-anything-android-release-preview
+          path: apps/craft-anything-android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Enable KVM for the Android emulator
@@ -102,5 +113,5 @@ jobs:
           profile: pixel_6
           disable-animations: true
           working-directory: apps/craft-anything-android
-          script: gradle :app:connectedDebugAndroidTest
+          script: gradle --build-cache --parallel :app:connectedDebugAndroidTest
 
