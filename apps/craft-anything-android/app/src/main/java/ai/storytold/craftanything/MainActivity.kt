@@ -2,7 +2,10 @@ package ai.storytold.craftanything
 
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import java.io.File
+import java.io.IOException
+import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,8 +22,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -54,11 +55,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 
 private val Ink = Color(0xFF09090D)
 private val Panel = Color(0xFF15151D)
 private val Violet = Color(0xFF9B7BFF)
 private val Muted = Color(0xFF9A97A8)
+private const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
 
 class MainActivity : ComponentActivity() {
     private external fun nativeVersion(): String
@@ -70,7 +73,9 @@ class MainActivity : ComponentActivity() {
         val nativeReady = runCatching { System.loadLibrary("craft_anything_android") }.isSuccess
         setContent {
             var selected by remember { mutableStateOf("Home") }
-            var coreVersion by remember { mutableStateOf(if (nativeReady) "Connecting to Rust core…" else "Rust core not built yet") }
+            var coreVersion by remember {
+                mutableStateOf(if (nativeReady) "Connecting to Rust core…" else "Rust core not built yet")
+            }
             var toolCount by remember { mutableStateOf(0) }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             val context = LocalContext.current
@@ -81,33 +86,50 @@ class MainActivity : ComponentActivity() {
                         targetResult = "Copying file into app storage…"
                         val opened = withContext(Dispatchers.IO) {
                             runCatching {
-                                val folder = File(context.filesDir, "targets").apply { mkdirs() }
-                                val copy = File.createTempFile("target-", ".bin", folder)
-                                val input = context.contentResolver.openInputStream(uri) ?: error("Could not read selected file")
-                                input.use { source ->
-                                    copy.outputStream().use { destination ->
-                                        val buffer = ByteArray(64 * 1024)
-                                        var total = 0L
-                                        while (true) {
-                                            val count = source.read(buffer)
-                                            if (count < 0) break
-                                            total += count
-                                            if (total > 512L * 1024L * 1024L) error("Files larger than 512 MB are not supported in this first mobile build.")
-                                            destination.write(buffer, 0, count)
-                                        }
-                                    }
+                                val folder = File(context.filesDir, "targets")
+                                if (!folder.exists() && !folder.mkdirs()) {
+                                    throw IOException("Couldn't create the private import directory.")
                                 }
-                                val params = org.json.JSONObject().put("path", copy.absolutePath).toString()
-                                org.json.JSONObject(nativeCallTool("core_target_open", params))
+                                val copy = File.createTempFile("target-", ".bin", folder)
+                                try {
+                                    val displayName = context.contentResolver.query(
+                                        uri,
+                                        arrayOf(OpenableColumns.DISPLAY_NAME),
+                                        null,
+                                        null,
+                                        null
+                                    )?.use { cursor ->
+                                        if (cursor.moveToFirst()) cursor.getString(0) else null
+                                    } ?: uri.lastPathSegment ?: "Selected file"
+
+                                    val input = context.contentResolver.openInputStream(uri)
+                                        ?: throw IOException("The selected document provider returned no readable stream.")
+                                    val copiedBytes = FileImport.copyBounded(input, copy, MAX_IMPORT_BYTES)
+                                    val parameters = JSONObject().put("path", copy.absolutePath).toString()
+                                    val payload = JSONObject(nativeCallTool("core_target_open", parameters))
+                                    if (!payload.optBoolean("ok")) {
+                                        copy.delete()
+                                        throw IOException(payload.optString("error", "The Rust engine couldn't open this file."))
+                                    }
+
+                                    val target = payload.optJSONObject("output")?.optJSONObject("result")
+                                    val title = target?.optString("name")?.takeIf { it.isNotBlank() } ?: displayName
+                                    val kind = target?.optString("kind")?.takeIf { it.isNotBlank() } ?: "target"
+                                    "Opened $title · $kind · ${formatByteCount(copiedBytes)}"
+                                } catch (error: Exception) {
+                                    copy.delete()
+                                    throw error
+                                }
                             }
                         }
-                        opened.onSuccess { payload ->
-                            targetResult = if (payload.optBoolean("ok")) {
-                                val target = payload.optJSONObject("output")?.optJSONObject("result")
-                                "Opened " + (target?.optString("name") ?: "file") + " · " + (target?.optString("kind") ?: "target")
-                            } else payload.optString("error", "The engine couldn't open this file.")
-                        }.onFailure { error -> targetResult = error.message ?: "Couldn't open the file." }
+                        opened.onSuccess { message ->
+                            targetResult = message
+                        }.onFailure { error ->
+                            targetResult = error.message ?: "Couldn't open the selected file."
+                        }
                     }
+                } else if (uri != null) {
+                    targetResult = "The Rust core is unavailable, so this file wasn't imported."
                 }
             }
 
@@ -127,13 +149,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MaterialTheme(colorScheme = darkColorScheme(
-                primary = Violet,
-                background = Ink,
-                surface = Panel,
-                onBackground = Color(0xFFF5F2FF),
-                onSurface = Color(0xFFF5F2FF)
-            )) {
+            MaterialTheme(
+                colorScheme = darkColorScheme(
+                    primary = Violet,
+                    background = Ink,
+                    surface = Panel,
+                    onBackground = Color(0xFFF5F2FF),
+                    onSurface = Color(0xFFF5F2FF)
+                )
+            ) {
                 Scaffold(
                     containerColor = Ink,
                     bottomBar = {
@@ -171,7 +195,13 @@ class MainActivity : ComponentActivity() {
                         }
                         Spacer(Modifier.height(26.dp))
                         when (selected) {
-                            "Home" -> HomeScreen(coreVersion, toolCount, targetResult, { filePicker.launch(arrayOf("*/*")) }, { selected = "Tools" })
+                            "Home" -> HomeScreen(
+                                coreVersion,
+                                toolCount,
+                                targetResult,
+                                { filePicker.launch(arrayOf("*/*")) },
+                                { selected = "Tools" }
+                            )
                             "Projects" -> EmptyScreen("Your projects", "Projects you create or open on this device will appear here.")
                             "Tools" -> ToolsScreen(nativeReady, toolCount, coreVersion)
                             else -> EmptyScreen("Settings", "Mobile permissions, AI providers and connected companion devices will live here.")
@@ -181,16 +211,22 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 
-    companion object {
-        init {
-            // Loading is attempted in onCreate so the UI can still explain a missing native library.
-        }
-    }
+private fun formatByteCount(bytes: Long): String = when {
+    bytes < 1024 -> "$bytes B"
+    bytes < 1024 * 1024 -> String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0)
+    else -> String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0))
 }
 
 @Composable
-private fun HomeScreen(coreVersion: String, toolCount: Int, targetResult: String, openFile: () -> Unit, openTools: () -> Unit) {
+private fun HomeScreen(
+    coreVersion: String,
+    toolCount: Int,
+    targetResult: String,
+    openFile: () -> Unit,
+    openTools: () -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Understand it. Rebuild it.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Inspect software, collect evidence and build something of your own — from your phone.", color = Muted)
