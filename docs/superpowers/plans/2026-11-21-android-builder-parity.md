@@ -63,6 +63,13 @@ The source product's main loop is Study → Build → Check → Ready. Its workb
 - Add file diff/restore with snapshots before AI edits.
 
 ### P1 — Real build/runtime capability
+
+#### Node runtime research / decision
+- The Android app currently has no Node.js or package-manager runtime. A current Node.js Mobile distribution can embed Node 24 as an Android shared library, but the mobile API compatibility documentation marks `child_process` and `cluster` unsupported. Those are fundamental for common npm package scripts, framework dev servers and native build steps, so an embedded mobile Node library is not a drop-in v0/Replit-style terminal.
+- Node.js Mobile's FAQ also notes npm modules are installed into the app source during development, not by providing a general on-device npm environment. This does not solve arbitrary per-project dependency installation.
+- Decision: do not bolt in `libnode.so` and label it a terminal. No hosted worker/API was added. First prototype and prove a child-process-capable ARM64 local runtime against `npm ci`, `npm run build`, `vite`/Next-style dev-server startup, cancellation, stdout/stderr streaming, storage isolation and native-addon compatibility. Only then expose a runtime as supported.
+- References: https://github.com/fogtape/nodejs-mobile ; https://nodejs-mobile.github.io/docs/api/differences/ ; https://github.com/nodejs-mobile/nodejs-mobile/blob/main/doc_mobile/FAQ.md
+
 - Inventory which shared toolchains can execute on Android (process availability, ABI, Bionic compatibility, storage, network).
 - Prototype an isolated Node.js runtime for ARM64 Android; evaluate binary size, npm TLS/registry support, lifecycle scripts, native add-ons, memory and app sandbox permissions. Do not mark Node projects supported until this passes.
 - Evaluate Python, Go, Rust and Gradle runtimes individually; a toolchain manifest is not proof a binary is installed.
