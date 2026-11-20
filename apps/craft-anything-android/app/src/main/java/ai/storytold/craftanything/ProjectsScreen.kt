@@ -26,8 +26,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -395,6 +395,7 @@ private fun ProjectDetails(
                 filesJson = filesJson,
                 selectedFileJson = selectedFileJson,
                 loading = filesLoading,
+                selectedFileLoading = selectedFileLoading,
                 error = filesError,
                 onRefresh = { onRefreshFiles(folder, appFolder) },
                 onOpenFile = { relativePath -> onOpenProjectFile(folder, appFolder, relativePath) },
