@@ -217,6 +217,7 @@ class BuildExecutionService : Service() {
 
     companion object {
         const val ACTION_START = "ai.storytold.craftanything.action.START_BUILD"
+        const val ACTION_RECOVER = "ai.storytold.craftanything.action.RECOVER_BUILD"
         const val EXTRA_PARAMS = "ai.storytold.craftanything.extra.BUILD_PARAMS"
         const val EXTRA_PROJECT_FOLDER = "ai.storytold.craftanything.extra.PROJECT_FOLDER"
         private const val ACTION_STOP = "ai.storytold.craftanything.action.STOP_BUILD"
@@ -229,5 +230,9 @@ class BuildExecutionService : Service() {
         private const val REQUEST_OPEN = 5910
         private const val REQUEST_STOP = 5911
         private const val POLL_INTERVAL_MS = 3_000L
+
+        fun hasActiveBuild(context: android.content.Context): Boolean =
+            context.getSharedPreferences(PREFERENCES, android.content.Context.MODE_PRIVATE)
+                .contains(KEY_ACTIVE_PARAMS)
     }
 }

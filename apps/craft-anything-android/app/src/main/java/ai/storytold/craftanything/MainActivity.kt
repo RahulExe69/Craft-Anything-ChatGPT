@@ -339,9 +339,12 @@ class MainActivity : ComponentActivity() {
                         buildStarting = true
                         buildFeedback = "Handing your build to the background runner…"
                         val launch = runCatching {
+                            if (BuildExecutionService.hasActiveBuild(context)) {
+                                throw IllegalStateException("A build is already running. Wait for it to finish before starting another.")
+                            }
                             val params = JSONObject(paramsJson)
                             if (params.optString("project").isBlank() && params.optString("project_folder").isBlank()) {
-                                val folder = File(context.filesDir, "projects/build-${java.util.UUID.randomUUID()}")
+                                val folder = File(File(context.filesDir, "projects"), "build-" + java.util.UUID.randomUUID().toString())
                                 params.put("project_folder", folder.absolutePath)
                             }
                             val folder = params.optString("project").ifBlank { params.optString("project_folder") }
@@ -371,11 +374,12 @@ class MainActivity : ComponentActivity() {
                                 }
                                 pendingProjectFolder = folder
                                 refreshProjects()
+                                buildStarting = false
                             }
                         }.onFailure { error ->
                             buildFeedback = error.message ?: "Craft Anything couldn't start this build."
+                            buildStarting = false
                         }
-                        buildStarting = false
                     }
                 }
             }
@@ -495,7 +499,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            LaunchedEffect(pendingProjectFolder) {
+            LaunchedEffect(pendingProjectFolder, coreVersion) {
+                if (!coreVersion.startsWith("Rust core v")) return@LaunchedEffect
                 val folder = pendingProjectFolder ?: return@LaunchedEffect
                 pendingProjectFolder = null
                 openProject(folder)
@@ -707,6 +712,12 @@ class MainActivity : ComponentActivity() {
                 if (coreVersion.startsWith("Rust core v")) {
                     refreshEvidence()
                     refreshAi()
+                    if (BuildExecutionService.hasActiveBuild(context)) {
+                        val recoveryIntent = android.content.Intent(context, BuildExecutionService::class.java).apply {
+                            action = BuildExecutionService.ACTION_RECOVER
+                        }
+                        runCatching { context.startForegroundService(recoveryIntent) }
+                    }
                 }
             }
 
