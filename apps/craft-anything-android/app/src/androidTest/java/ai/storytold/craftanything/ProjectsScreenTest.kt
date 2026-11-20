@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -90,13 +91,20 @@ class ProjectsScreenTest {
                 onCloseDetails = {},
                 buildStatusJson = status,
                 activityJson = activity,
-                onStopBuild = { stopped.set(it) }
+                onStopBuild = { stopped.set(it) },
+                onAddBuildNote = { project, note -> direction.set(project to note) }
             )
         }
 
         composeRule.onNodeWithText("Live build activity").assertIsDisplayed()
         composeRule.onNodeWithText("Building now").assertIsDisplayed()
         composeRule.onNodeWithText("22:00:02 start Reading src/main.kt").assertIsDisplayed()
+        val direction = AtomicReference<Pair<String, String>?>(null)
+        composeRule.onNodeWithText("Tell the builder what to change").performTextInput("Add a settings page")
+        composeRule.onNodeWithText("Send direction").performClick()
+        composeRule.runOnIdle {
+            assertEquals(folder to "Add a settings page", direction.get())
+        }
         composeRule.onNodeWithText("Stop build").performClick()
         composeRule.runOnIdle { assertEquals(folder, stopped.get()) }
     }
