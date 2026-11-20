@@ -623,7 +623,7 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { padding ->
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp, vertical = 18.dp)
+                        modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Box(
@@ -648,7 +648,7 @@ class MainActivity : ComponentActivity() {
                                 Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = Muted)
                             }
                         }
-                        Spacer(Modifier.height(26.dp))
+                        Spacer(Modifier.height(16.dp))
                         when (selected) {
                             "Home" -> HomeScreen(
                                 coreVersion,
@@ -838,71 +838,135 @@ private fun HomeScreen(
     openAi: () -> Unit,
     openBuild: () -> Unit
 ) {
-    Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Understand it. Rebuild it.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Inspect software, collect evidence and build something of your own — from your phone.", color = Muted)
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(22.dp)) {
-            Column(Modifier.padding(18.dp)) {
-                Text("ENGINE STATUS", color = Muted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(10.dp))
-                Text(coreVersion, fontWeight = FontWeight.SemiBold)
-                if (toolCount > 0) Text("$toolCount registered tools", color = Violet)
-                Spacer(Modifier.height(14.dp))
-                Text("The Rust engine is connected. Open a file to inspect it, then follow the evidence and open questions.", color = Muted, style = MaterialTheme.typography.bodySmall)
-            }
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                "YOUR CREATIVE WORKSPACE",
+                color = Violet,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "What do you want to create?",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Turn an idea, a reference or an existing project into something real. Build with AI and stay close to every step.",
+                color = Muted,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
-        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Inspect a file", fontWeight = FontWeight.Bold)
-                Text(targetResult, color = Muted, style = MaterialTheme.typography.bodySmall)
-                Button(onClick = openFile, enabled = coreVersion.startsWith("Rust core")) {
-                    Icon(Icons.Rounded.FolderOpen, contentDescription = null)
-                    Text("  Choose file")
-                }
-            }
-        }
-
 
         Card(
             modifier = Modifier.fillMaxWidth().clickable(onClick = openBuild),
-            colors = CardDefaults.cardColors(containerColor = Violet.copy(alpha = .13f)),
-            shape = RoundedCornerShape(18.dp)
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1827)),
+            shape = RoundedCornerShape(26.dp)
         ) {
-            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Violet)
+            Column(
+                Modifier.fillMaxWidth().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Violet)
+                    Text(
+                        "  START A NEW PROJECT",
+                        color = Violet,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text("↗", color = Violet, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    "Describe it. We'll build it together.",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Create a website, mobile app, dashboard or game. Add a reference, choose your AI builder and watch the work happen.",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Button(onClick = openBuild, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null)
+                    Text("  Open builder")
+                }
+            }
+        }
+
+        Text("Bring something to work with", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = openFile),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = Violet)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text("Create a project", fontWeight = FontWeight.Bold)
-                    Text("Describe an app, website or game and start a build", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    Text("Import a file or project reference", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        targetResult.takeIf { it != "No file opened yet." } ?: "Open a local file for inspection or use it as source material.",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2
+                    )
                 }
                 Text("→", color = Violet)
             }
         }
-        Card(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = openAi),
-            colors = CardDefaults.cardColors(containerColor = Violet.copy(alpha = .13f)),
-            shape = RoundedCornerShape(22.dp)
-        ) {
-            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Violet)
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text("Ask Craft Anything", fontWeight = FontWeight.Bold)
-                    Text("Talk through the evidence with your connected AI", color = Muted, style = MaterialTheme.typography.bodySmall)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.weight(1f).clickable(onClick = openAi),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Violet)
+                    Text("Ask AI", fontWeight = FontWeight.SemiBold)
+                    Text("Think through ideas and project questions.", color = Muted, style = MaterialTheme.typography.bodySmall)
                 }
-                Text("→", color = Violet)
+            }
+            Card(
+                modifier = Modifier.weight(1f).clickable(onClick = openTools),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Icon(Icons.Rounded.Terminal, contentDescription = null, tint = Violet)
+                    Text("Engine tools", fontWeight = FontWeight.SemiBold)
+                    Text("$toolCount available actions", color = Muted, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
+
         Card(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = openTools),
-            colors = CardDefaults.cardColors(containerColor = Violet.copy(alpha = .13f)),
-            shape = RoundedCornerShape(22.dp)
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Terminal, contentDescription = null, tint = Violet)
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text("Explore the tool registry", fontWeight = FontWeight.Bold)
-                    Text("See what the Rust engine exposes", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Row(
+                Modifier.fillMaxWidth().padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier.size(9.dp).background(
+                        if (coreVersion.startsWith("Rust core v")) Color(0xFF71D5A2) else Color(0xFFFFC46B),
+                        RoundedCornerShape(50)
+                    )
+                )
+                Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                    Text("Engine connection", fontWeight = FontWeight.SemiBold)
+                    Text(coreVersion, color = Muted, style = MaterialTheme.typography.bodySmall)
                 }
-                Text("→", color = Violet)
+                Text("$toolCount tools", color = Violet, style = MaterialTheme.typography.labelMedium)
             }
         }
     }
