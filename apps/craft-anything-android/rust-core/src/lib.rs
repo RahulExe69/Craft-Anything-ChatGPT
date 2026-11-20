@@ -76,3 +76,43 @@ pub extern "system" fn Java_ai_storytold_craftanything_MainActivity_nativeCallTo
     let json = result.unwrap_or_else(|message| serde_json::json!({"ok": false, "error": message}).to_string());
     into_java_string(&mut env, json)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn test_engine() -> Engine {
+        Engine::new(Session::new(Settings::default()))
+    }
+
+    #[test]
+    fn catalogue_includes_the_file_open_tool() {
+        let catalog = tool_catalog_json(&test_engine());
+        let value = serde_json::from_str::<Value>(&catalog).unwrap_or(Value::Null);
+        let includes_open = value.as_array().is_some_and(|items| {
+            items.iter().any(|item| item["id"] == "core_target_open")
+        });
+        assert!(includes_open, "the Android catalogue must expose core_target_open");
+    }
+
+    #[test]
+    fn dispatch_returns_the_real_session_status() {
+        let response = dispatch_tool(&test_engine(), "core_session_show", "{}");
+        let value = serde_json::from_str::<Value>(&response).unwrap_or(Value::Null);
+        assert_eq!(value["ok"], Value::Bool(true));
+        assert_eq!(value["output"]["result"]["open"], Value::Bool(false));
+    }
+
+    #[test]
+    fn dispatch_reports_malformed_parameters_as_a_structured_error() {
+        let response = dispatch_tool(&test_engine(), "core_session_show", "{");
+        let value = serde_json::from_str::<Value>(&response).unwrap_or(Value::Null);
+        assert_eq!(value["ok"], Value::Bool(false));
+        assert!(
+            value["error"].as_str().is_some_and(|message| message.contains("Invalid tool parameters")),
+            "malformed JSON must produce a useful bridge error"
+        );
+    }
+}
