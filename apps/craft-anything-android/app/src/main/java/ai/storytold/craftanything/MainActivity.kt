@@ -314,6 +314,7 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 payload.optString("error", "The engine couldn't complete this action.")
                                             }
+                                            if (payload.optBoolean("ok")) refreshEvidence()
                                         }.onFailure { error ->
                                             toolResult = error.message ?: "The native bridge call failed."
                                         }
