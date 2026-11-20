@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Assessment
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
@@ -32,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -49,9 +52,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -76,6 +81,17 @@ class MainActivity : ComponentActivity() {
     private external fun nativeVersion(): String
     private external fun nativeToolCatalog(): String
     private external fun nativeCallTool(toolId: String, paramsJson: String, consentGranted: Boolean): String
+    private external fun nativeAiStatus(): String
+    private external fun nativeAiAddBackend(inputJson: String): String
+    private external fun nativeAiSetBackendKey(name: String, key: String): String
+    private external fun nativeAiSetRole(role: String, name: String): String
+    private external fun nativeAiSetEnabled(name: String, enabled: Boolean): String
+    private external fun nativeAiRemoveBackend(name: String): String
+    private external fun nativeAiStartChat(backend: String): String
+    private external fun nativeAiSendChatMessage(message: String): String
+    private external fun nativeAiPollChatEvents(): String
+    private external fun nativeAiAnswerConsent(callId: String, allow: Boolean): String
+    private external fun nativeAiStopChat(): String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,6 +104,15 @@ class MainActivity : ComponentActivity() {
             var toolCount by remember { mutableStateOf(0) }
             var toolCatalogJson by remember { mutableStateOf("[]") }
             var toolResult by remember { mutableStateOf("") }
+            var aiStatusJson by remember { mutableStateOf("""{"ok":true,"output":{"backends":[],"roles":{}}}""") }
+            var aiSettingsLoading by remember { mutableStateOf(false) }
+            var aiSettingsMessage by remember { mutableStateOf("") }
+            var selectedAiBackend by remember { mutableStateOf("") }
+            var aiChatStarted by remember { mutableStateOf(false) }
+            var aiChatBusy by remember { mutableStateOf(false) }
+            var aiChatStatus by remember { mutableStateOf("Connect a provider to start.") }
+            var aiChatMessages by remember { mutableStateOf(emptyList<AiChatMessage>()) }
+            var aiPendingConsent by remember { mutableStateOf<AiPendingConsent?>(null) }
             var projectsJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"projects\":[]}}}") }
             var projectsLoading by remember { mutableStateOf(false) }
             var projectsError by remember { mutableStateOf("") }
@@ -116,6 +141,119 @@ class MainActivity : ComponentActivity() {
                         }
                         projectsLoading = false
                     }
+                }
+            }
+
+            val refreshAi: () -> Unit = {
+                if (nativeReady && coreVersion.startsWith("Rust core v")) {
+                    scope.launch {
+                        aiSettingsLoading = true
+                        val response = withContext(Dispatchers.IO) {
+                            runCatching {
+                                requireOkEnvelope(nativeAiStatus(), "Couldn't load AI providers.").toString(2)
+                            }
+                        }
+                        response.onSuccess { aiStatusJson = it }.onFailure {
+                            aiSettingsMessage = it.message ?: "Couldn't load AI providers."
+                        }
+                        aiSettingsLoading = false
+                    }
+                }
+            }
+            val runAiSettingsAction: (String, () -> String) -> Unit = { successMessage, action ->
+                scope.launch {
+                    aiSettingsLoading = true
+                    aiSettingsMessage = ""
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching { requireOkEnvelope(action(), "Couldn't update AI settings.") }
+                    }
+                    response.onSuccess {
+                        aiSettingsMessage = successMessage
+                        refreshAi()
+                    }.onFailure {
+                        aiSettingsMessage = it.message ?: "Couldn't update AI settings."
+                    }
+                    aiSettingsLoading = false
+                }
+            }
+            val addAiBackend: (String, String, String, String, String) -> Unit = { name, kind, model, baseUrl, key ->
+                val input = JSONObject()
+                    .put("name", name)
+                    .put("kind", kind)
+                    .put("model", model)
+                    .put("base_url", baseUrl.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+                    .put("key", key.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
+                runAiSettingsAction("Provider saved. You can now start an AI conversation.") {
+                    nativeAiAddBackend(input.toString())
+                }
+            }
+            val setAiRole: (String, String) -> Unit = { role, name ->
+                runAiSettingsAction("$name is now assigned to the $role role.") {
+                    nativeAiSetRole(role, name)
+                }
+            }
+            val setAiEnabled: (String, Boolean) -> Unit = { name, enabled ->
+                runAiSettingsAction(if (enabled) "$name enabled." else "$name disabled.") {
+                    nativeAiSetEnabled(name, enabled)
+                }
+            }
+            val removeAiBackend: (String) -> Unit = { name ->
+                runAiSettingsAction("$name removed.") { nativeAiRemoveBackend(name) }
+            }
+            val startAiChat: (String) -> Unit = { backend ->
+                scope.launch {
+                    aiChatStatus = "Connecting…"
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching { requireOkEnvelope(nativeAiStartChat(backend), "Couldn't start the AI conversation.") }
+                    }
+                    response.onSuccess {
+                        aiChatMessages = emptyList()
+                        aiPendingConsent = null
+                        aiChatStarted = true
+                        aiChatBusy = false
+                        aiChatStatus = "Ready — ask away."
+                    }.onFailure {
+                        aiChatStatus = it.message ?: "Couldn't start the AI conversation."
+                    }
+                }
+            }
+            val sendAiMessage: (String) -> Unit = { message ->
+                if (message.isNotBlank() && aiChatStarted && !aiChatBusy) {
+                    aiChatMessages = aiChatMessages + AiChatMessage("user", message) + AiChatMessage("assistant", "")
+                    aiChatBusy = true
+                    aiChatStatus = "Thinking…"
+                    scope.launch {
+                        val response = withContext(Dispatchers.IO) {
+                            runCatching { requireOkEnvelope(nativeAiSendChatMessage(message), "Couldn't send the message.") }
+                        }
+                        response.onFailure {
+                            aiChatMessages = aiChatMessages.dropLast(1) + AiChatMessage("assistant", it.message ?: "Couldn't send the message.")
+                            aiChatBusy = false
+                            aiChatStatus = "Message not sent."
+                        }
+                    }
+                }
+            }
+            val answerAiConsent: (String, Boolean) -> Unit = { callId, allow ->
+                scope.launch {
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching { requireOkEnvelope(nativeAiAnswerConsent(callId, allow), "Couldn't send the permission choice.") }
+                    }
+                    response.onSuccess {
+                        aiPendingConsent = null
+                        aiChatStatus = if (allow) "Permission granted for this action." else "Action denied."
+                    }.onFailure {
+                        aiChatStatus = it.message ?: "Couldn't send the permission choice."
+                    }
+                }
+            }
+            val stopAiChat: () -> Unit = {
+                scope.launch {
+                    withContext(Dispatchers.IO) { nativeAiStopChat() }
+                    aiChatStarted = false
+                    aiChatBusy = false
+                    aiPendingConsent = null
+                    aiChatStatus = "Conversation stopped."
                 }
             }
             val refreshEvidence: () -> Unit = {
@@ -212,8 +350,87 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(coreVersion) {
-                if (coreVersion.startsWith("Rust core")) {
+                if (coreVersion.startsWith("Rust core v")) {
                     refreshEvidence()
+                    refreshAi()
+                }
+            }
+
+            LaunchedEffect(aiStatusJson) {
+                val aiStatus = parseNativeAiStatus(aiStatusJson)
+                if (selectedAiBackend.isBlank()) {
+                    selectedAiBackend = aiStatus.lead ?: aiStatus.backends.firstOrNull { it.enabled }?.name.orEmpty()
+                }
+            }
+
+            LaunchedEffect(aiChatStarted) {
+                while (aiChatStarted) {
+                    val response = withContext(Dispatchers.IO) {
+                        runCatching { JSONObject(nativeAiPollChatEvents()) }
+                    }
+                    response.onSuccess { payload ->
+                        if (payload.optBoolean("ok")) {
+                            val output = payload.optJSONObject("output") ?: JSONObject()
+                            val events = output.optJSONArray("events") ?: JSONArray()
+                            for (index in 0 until events.length()) {
+                                val event = events.optJSONObject(index) ?: continue
+                                when (event.optString("type")) {
+                                    "text_delta" -> {
+                                        val delta = event.optString("text")
+                                        if (delta.isNotEmpty()) {
+                                            val last = aiChatMessages.lastOrNull()
+                                            aiChatMessages = if (last?.role == "assistant") {
+                                                aiChatMessages.dropLast(1) + last.copy(text = last.text + delta)
+                                            } else {
+                                                aiChatMessages + AiChatMessage("assistant", delta)
+                                            }
+                                        }
+                                    }
+                                    "status" -> aiChatStatus = event.optString("text", "Working…")
+                                    "tool_started" -> aiChatStatus = "Using ${event.optString("tool")}…"
+                                    "tool_finished" -> {
+                                        aiChatStatus = if (event.optBoolean("ok")) {
+                                            "${event.optString("tool")} completed."
+                                        } else {
+                                            "${event.optString("tool")} needs attention."
+                                        }
+                                        if (event.optBoolean("ok")) {
+                                            refreshEvidence()
+                                            refreshProjects()
+                                        }
+                                    }
+                                    "consent_needed" -> {
+                                        aiPendingConsent = AiPendingConsent(
+                                            callId = event.optString("call_id"),
+                                            title = event.optString("title", "Permission needed"),
+                                            explanation = event.optString("explanation"),
+                                        )
+                                    }
+                                    "turn_done" -> {
+                                        aiChatBusy = false
+                                        aiChatStatus = "Ready — ask away."
+                                    }
+                                    "error" -> {
+                                        aiChatBusy = false
+                                        val error = event.optString("message", "The AI turn failed.")
+                                        aiChatStatus = event.optString("remediation").takeUnless { it.isBlank() || it == "null" }?.let { "$error $it" } ?: error
+                                        val last = aiChatMessages.lastOrNull()
+                                        if (last?.role == "assistant" && last.text.isBlank()) {
+                                            aiChatMessages = aiChatMessages.dropLast(1) + last.copy(text = error)
+                                        } else {
+                                            aiChatMessages = aiChatMessages + AiChatMessage("assistant", error)
+                                        }
+                                    }
+                                }
+                            }
+                            aiChatBusy = output.optBoolean("busy", aiChatBusy)
+                        } else {
+                            aiChatStatus = payload.optString("error", "Couldn't read AI events.")
+                        }
+                    }.onFailure {
+                        aiChatStatus = it.message ?: "Couldn't read AI events."
+                    }
+                    delay(250)
                 }
             }
 
@@ -227,14 +444,16 @@ class MainActivity : ComponentActivity() {
                             }
                             val catalog = nativeToolCatalog()
                             val projectList = nativeCallTool("project_list", "{}", false)
-                            Triple(nativeVersion(), catalog, projectList)
+                            val aiStatus = nativeAiStatus()
+                            Triple(nativeVersion(), catalog, projectList to aiStatus)
                         }
                     }
                     result.onSuccess {
                         coreVersion = "Rust core v${it.first}"
                         toolCatalogJson = it.second
                         toolCount = JSONArray(it.second).length()
-                        projectsJson = it.third
+                        projectsJson = it.third.first
+                        aiStatusJson = it.third.second
                     }.onFailure {
                         coreVersion = "Rust bridge error: ${it.message ?: "unknown error"}"
                     }
@@ -257,9 +476,9 @@ class MainActivity : ComponentActivity() {
                             listOf(
                                 Triple("Home", Icons.Rounded.Home, "Home"),
                                 Triple("Projects", Icons.Rounded.FolderOpen, "Projects"),
+                                Triple("AI", Icons.Rounded.AutoAwesome, "AI"),
                                 Triple("Evidence", Icons.Rounded.Assessment, "Evidence"),
-                                Triple("Tools", Icons.Rounded.Terminal, "Tools"),
-                                Triple("Settings", Icons.Rounded.Settings, "Settings")
+                                Triple("Tools", Icons.Rounded.Terminal, "Tools")
                             ).forEach { (label, icon, route) ->
                                 NavigationBarItem(
                                     selected = selected == route,
@@ -274,16 +493,24 @@ class MainActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp, vertical = 18.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Box(
                                 modifier = Modifier.size(42.dp).background(Violet.copy(alpha = .16f), RoundedCornerShape(14.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Rounded.Terminal, contentDescription = null, tint = Violet)
+                                Image(
+                                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(38.dp)
+                                )
                             }
                             Column(Modifier.padding(start = 12.dp)) {
                                 Text("CRAFT ANYTHING", style = MaterialTheme.typography.labelMedium, color = Muted, fontWeight = FontWeight.Bold)
                                 Text(selected, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { selected = "Settings" }) {
+                                Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = Muted)
                             }
                         }
                         Spacer(Modifier.height(26.dp))
@@ -299,7 +526,8 @@ class MainActivity : ComponentActivity() {
                                         targetResult = "The Rust core is still initializing. Try again in a moment."
                                     }
                                 },
-                                { selected = "Tools" }
+                                { selected = "Tools" },
+                                { selected = "AI" }
                             )
                             "Projects" -> ProjectsScreen(
                                 projectsJson = projectsJson,
@@ -358,6 +586,22 @@ class MainActivity : ComponentActivity() {
                                 },
                                 modifier = Modifier.weight(1f)
                             )
+
+                            "AI" -> AiChatScreen(
+                                backends = parseNativeAiStatus(aiStatusJson).backends,
+                                selectedBackend = selectedAiBackend,
+                                messages = aiChatMessages,
+                                connected = aiChatStarted,
+                                busy = aiChatBusy,
+                                status = aiChatStatus,
+                                pendingConsent = aiPendingConsent,
+                                onBackendSelected = { selectedAiBackend = it },
+                                onStart = startAiChat,
+                                onStop = stopAiChat,
+                                onSend = sendAiMessage,
+                                onConsent = answerAiConsent,
+                                modifier = Modifier.weight(1f)
+                            )
                             "Evidence" -> EvidenceScreen(
                                 evidenceJson = evidenceJson,
                                 unknownsJson = unknownsJson,
@@ -390,7 +634,18 @@ class MainActivity : ComponentActivity() {
                                 },
                                 modifier = Modifier.weight(1f)
                             )
-                            else -> EmptyScreen("Settings", "Mobile permissions, AI providers and connected companion devices will live here.")
+                            "Settings" -> AiSettingsScreen(
+                                statusJson = aiStatusJson,
+                                loading = aiSettingsLoading,
+                                message = aiSettingsMessage,
+                                onRefresh = refreshAi,
+                                onAddBackend = addAiBackend,
+                                onSetRole = setAiRole,
+                                onSetEnabled = setAiEnabled,
+                                onRemoveBackend = removeAiBackend,
+                                modifier = Modifier.weight(1f)
+                            )
+                            else -> EmptyScreen("Not found", "This section is not available yet.")
                         }
                     }
                 }
@@ -405,7 +660,8 @@ private fun HomeScreen(
     toolCount: Int,
     targetResult: String,
     openFile: () -> Unit,
-    openTools: () -> Unit
+    openTools: () -> Unit,
+    openAi: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Understand it. Rebuild it.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -417,7 +673,7 @@ private fun HomeScreen(
                 Text(coreVersion, fontWeight = FontWeight.SemiBold)
                 if (toolCount > 0) Text("$toolCount registered tools", color = Violet)
                 Spacer(Modifier.height(14.dp))
-                Text("The Android shell is in place. Core workflows are being connected in stages.", color = Muted, style = MaterialTheme.typography.bodySmall)
+                Text("The Rust engine is connected. Open a file to inspect it, then follow the evidence and open questions.", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         }
         Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
@@ -428,6 +684,21 @@ private fun HomeScreen(
                     Icon(Icons.Rounded.FolderOpen, contentDescription = null)
                     Text("  Choose file")
                 }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = openAi),
+            colors = CardDefaults.cardColors(containerColor = Violet.copy(alpha = .13f)),
+            shape = RoundedCornerShape(22.dp)
+        ) {
+            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Violet)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text("Ask Craft Anything", fontWeight = FontWeight.Bold)
+                    Text("Talk through the evidence with your connected AI", color = Muted, style = MaterialTheme.typography.bodySmall)
+                }
+                Text("→", color = Violet)
             }
         }
         Card(
