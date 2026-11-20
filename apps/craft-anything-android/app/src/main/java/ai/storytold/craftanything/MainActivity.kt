@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Assessment
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
@@ -83,6 +84,10 @@ class MainActivity : ComponentActivity() {
             var projectsJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"projects\":[]}}}") }
             var projectsLoading by remember { mutableStateOf(false) }
             var projectsError by remember { mutableStateOf("") }
+            var evidenceJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"records\":[]}}}") }
+            var unknownsJson by remember { mutableStateOf("{\"ok\":true,\"output\":{\"result\":{\"items\":[]}}}") }
+            var evidenceLoading by remember { mutableStateOf(false) }
+            var evidenceError by remember { mutableStateOf("") }
             var projectDetailsJson by remember { mutableStateOf("") }
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             val context = LocalContext.current
@@ -99,6 +104,28 @@ class MainActivity : ComponentActivity() {
                             projectsError = it.message ?: "Couldn't load projects."
                         }
                         projectsLoading = false
+                    }
+                }
+            }
+            val refreshEvidence: () -> Unit = {
+                if (nativeReady && coreVersion.startsWith("Rust core")) {
+                    scope.launch {
+                        evidenceLoading = true
+                        evidenceError = ""
+                        val response = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val evidence = JSONObject(nativeCallTool("core_evidence_show", """{"detail":"summary"}""", false)).toString(2)
+                                val unknowns = JSONObject(nativeCallTool("core_unknowns_show", "{}", false)).toString(2)
+                                evidence to unknowns
+                            }
+                        }
+                        response.onSuccess {
+                            evidenceJson = it.first
+                            unknownsJson = it.second
+                        }.onFailure {
+                            evidenceError = it.message ?: "Couldn't load the session evidence."
+                        }
+                        evidenceLoading = false
                     }
                 }
             }
@@ -169,6 +196,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            LaunchedEffect(coreVersion) {
+                if (coreVersion.startsWith("Rust core")) {
+                    refreshEvidence()
+                }
+            }
+
             LaunchedEffect(nativeReady) {
                 if (nativeReady) {
                     val result = withContext(Dispatchers.IO) {
@@ -209,6 +242,7 @@ class MainActivity : ComponentActivity() {
                             listOf(
                                 Triple("Home", Icons.Rounded.Home, "Home"),
                                 Triple("Projects", Icons.Rounded.FolderOpen, "Projects"),
+                                Triple("Evidence", Icons.Rounded.Assessment, "Evidence"),
                                 Triple("Tools", Icons.Rounded.Terminal, "Tools"),
                                 Triple("Settings", Icons.Rounded.Settings, "Settings")
                             ).forEach { (label, icon, route) ->
@@ -254,6 +288,14 @@ class MainActivity : ComponentActivity() {
                                 onRefresh = refreshProjects,
                                 onOpenProject = openProject,
                                 onCloseDetails = { projectDetailsJson = "" },
+                                modifier = Modifier.weight(1f)
+                            )
+                            "Evidence" -> EvidenceScreen(
+                                evidenceJson = evidenceJson,
+                                unknownsJson = unknownsJson,
+                                loading = evidenceLoading,
+                                error = evidenceError,
+                                onRefresh = refreshEvidence,
                                 modifier = Modifier.weight(1f)
                             )
                             "Tools" -> ToolsScreen(
