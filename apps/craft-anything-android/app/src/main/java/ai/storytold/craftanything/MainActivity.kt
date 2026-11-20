@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Spacer(Modifier.height(26.dp))
                         when (selected) {
-                            "Home" -> HomeScreen(coreVersion, toolCount) { selected = "Tools" }
+                            "Home" -> HomeScreen(coreVersion, toolCount, targetResult, { filePicker.launch(arrayOf("*/*")) }, { selected = "Tools" })
                             "Projects" -> EmptyScreen("Your projects", "Projects you create or open on this device will appear here.")
                             "Tools" -> ToolsScreen(nativeReady, toolCount, coreVersion)
                             else -> EmptyScreen("Settings", "Mobile permissions, AI providers and connected companion devices will live here.")
@@ -181,7 +181,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun HomeScreen(coreVersion: String, toolCount: Int, openTools: () -> Unit) {
+private fun HomeScreen(coreVersion: String, toolCount: Int, targetResult: String, openFile: () -> Unit, openTools: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Understand it. Rebuild it.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Inspect software, collect evidence and build something of your own — from your phone.", color = Muted)
@@ -193,6 +193,16 @@ private fun HomeScreen(coreVersion: String, toolCount: Int, openTools: () -> Uni
                 if (toolCount > 0) Text("$toolCount registered tools", color = Violet)
                 Spacer(Modifier.height(14.dp))
                 Text("The Android shell is in place. Core workflows are being connected in stages.", color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Panel), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Inspect a file", fontWeight = FontWeight.Bold)
+                Text(targetResult, color = Muted, style = MaterialTheme.typography.bodySmall)
+                Button(onClick = openFile, enabled = coreVersion.startsWith("Rust core")) {
+                    Icon(Icons.Rounded.FolderOpen, contentDescription = null)
+                    Text("  Choose file")
+                }
             }
         }
         Card(
