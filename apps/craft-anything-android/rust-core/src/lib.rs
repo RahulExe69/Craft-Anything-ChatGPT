@@ -145,7 +145,7 @@ mod jni_exports {
             .with_env(|env| -> jni::errors::Result<jstring> {
                 let tool_id = tool_id.try_to_string(env)?;
                 let params_text = params_json.try_to_string(env)?;
-                let response = dispatch_tool(engine(), &tool_id, &params_text, consent_granted != 0);
+                let response = dispatch_tool(engine(), &tool_id, &params_text, consent_granted);
                 Ok(env.new_string(response)?.into_raw())
             })
             .resolve::<ThrowRuntimeExAndDefault>()
