@@ -23,10 +23,11 @@ import androidx.compose.ui.unit.dp
 
 internal val craftBuildPhases = listOf("Study", "Build", "Check", "Ready")
 
-internal fun projectPhaseIndex(status: String): Int? = when (status.lowercase()) {
+internal fun projectPhaseIndex(status: String, hasCheck: Boolean = false): Int? = when (status.lowercase()) {
     "new", "inspecting" -> 0
-    "building" -> 1
+    "building", "stopped" -> 1
     "checking" -> 2
+    "needs_you" -> if (hasCheck) 2 else 1
     "ready" -> 3
     else -> null
 }
@@ -38,8 +39,8 @@ internal fun projectPhaseMessage(status: String): String? = when (status.lowerca
 }
 
 @Composable
-internal fun ProjectPhaseStepper(status: String, statusLabel: String) {
-    val active = projectPhaseIndex(status)
+internal fun ProjectPhaseStepper(status: String, statusLabel: String, hasCheck: Boolean = false) {
+    val active = projectPhaseIndex(status, hasCheck)
     val message = projectPhaseMessage(status)
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

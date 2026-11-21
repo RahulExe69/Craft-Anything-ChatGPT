@@ -283,8 +283,10 @@ internal fun ProjectsScreen(
                 }
                 Text(
                     if (detailResult == null) "Your projects" else detailResult.optString("name", "Project"),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = if (detailResult == null) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Text(
                     if (detailResult == null) "${projects.size} projects · this device" else "Project workspace",
@@ -469,29 +471,32 @@ private fun ProjectDetails(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(project.optString("status_label", project.optString("status")), color = Color(0xFF9B7BFF), fontWeight = FontWeight.Bold)
-                Text(project.optString("request"), style = MaterialTheme.typography.bodyMedium)
-                Text(folder, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                val stack = project.opt("stack")?.takeUnless { it == JSONObject.NULL }?.toString().orEmpty()
-                if (stack.isNotBlank() && stack != "[]") {
-                    Text("Stack: $stack", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                }
-                OutlinedButton(
-                    onClick = { onExportProject(project.optString("name", "craft-project"), appFolder) },
-                    enabled = !exportBusy
-                ) {
-                    Text(if (exportBusy) "Preparing ZIP…" else "Export project ZIP")
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("PROJECT BRIEF", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                Text(project.optString("request"), style = MaterialTheme.typography.bodyMedium, maxLines = 3)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val stack = project.opt("stack")?.takeUnless { it == JSONObject.NULL }?.toString().orEmpty()
+                    Text(
+                        if (stack.isNotBlank() && stack != "[]") "Stack · $stack" else "Saved on this device",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedButton(onClick = { onExportProject(project.optString("name", "craft-project"), appFolder) }, enabled = !exportBusy) {
+                        Text(if (exportBusy) "Saving…" else "Export ZIP")
+                    }
                 }
                 if (exportMessage.isNotBlank()) {
-                    Text(exportMessage, color = if (exportMessage.startsWith("Exported")) Color(0xFF83D7AA) else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    Text(exportMessage, color = if (exportMessage.startsWith("Exported")) Color(0xFF26834D) else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
         ProjectPhaseStepper(
             status = project.optString("status"),
-            statusLabel = project.optString("status_label", project.optString("status").replace('_', ' ').replaceFirstChar { it.uppercase() })
+            statusLabel = project.optString("status_label", project.optString("status").replace('_', ' ').replaceFirstChar { it.uppercase() }),
+            hasCheck = project.opt("last_check")?.let { it != JSONObject.NULL } == true
         )
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -519,10 +524,13 @@ private fun ProjectDetails(
 
         when (workspaceTab) {
             "Chat" -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MetricCard("Messages", (conversation?.optInt("total") ?: 0).toString(), Modifier.weight(1f))
-                    MetricCard("Questions", (questions?.length() ?: 0).toString(), Modifier.weight(1f))
-                    MetricCard("Waiting", project.optInt("waiting").toString(), Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text((conversation?.optInt("total") ?: 0).toString() + " messages", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    Text("·", color = MaterialTheme.colorScheme.outline)
+                    Text((questions?.length() ?: 0).toString() + " questions", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    if (project.optInt("waiting") > 0) {
+                        Text("· " + project.optInt("waiting") + " waiting", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
                 if (questions != null && questions.length() > 0) {
                     Text("Waiting for you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
