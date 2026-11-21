@@ -29,13 +29,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Assessment
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Chat
+import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,8 +49,8 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
@@ -66,10 +72,10 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-private val Ink = Color(0xFF09090D)
-private val Panel = Color(0xFF15151D)
-private val Violet = Color(0xFF9B7BFF)
-private val Muted = Color(0xFF9A97A8)
+private val Ink = Color(0xFFF7F6FA)
+private val Panel = Color.White
+private val Violet = Color(0xFF7350D5)
+private val Muted = Color(0xFF777282)
 private const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
 
 private fun requireOkEnvelope(response: String, fallbackMessage: String): JSONObject {
@@ -257,7 +263,7 @@ class MainActivity : ComponentActivity() {
         val nativeReady = runCatching { System.loadLibrary("craft_anything_android") }.isSuccess
         val notificationProjectFolder = intent.getStringExtra(BuildExecutionService.EXTRA_PROJECT_FOLDER)
         setContent {
-            var selected by remember { mutableStateOf(if (notificationProjectFolder.isNullOrBlank()) "Home" else "Projects") }
+            var selected by remember { mutableStateOf(if (notificationProjectFolder.isNullOrBlank()) "Build" else "Projects") }
             var coreVersion by remember {
                 mutableStateOf(if (nativeReady) "Connecting to Rust core…" else "Rust core not built yet")
             }
@@ -311,6 +317,10 @@ class MainActivity : ComponentActivity() {
             var targetResult by remember { mutableStateOf("No file opened yet.") }
             var importedTargetPath by remember { mutableStateOf("") }
             val context = LocalContext.current
+            var isDarkTheme by remember {
+                mutableStateOf(context.getSharedPreferences("craft_appearance", MODE_PRIVATE).getBoolean("dark", false))
+            }
+            var moreMenuExpanded by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
             val notificationPermissionLauncher = rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -943,29 +953,75 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    primary = Violet,
-                    secondary = Color(0xFFC6B5FF),
-                    background = Ink,
-                    surface = Panel,
-                    surfaceVariant = Color(0xFF22212B),
-                    error = Color(0xFFFF8D9C),
-                    onBackground = Color(0xFFF5F2FF),
-                    onSurface = Color(0xFFF5F2FF),
-                    onSurfaceVariant = Muted
-                )
-            ) {
+            MaterialTheme(colorScheme = if (isDarkTheme) CraftColorSchemes.Dark else CraftColorSchemes.Light) {
                 Scaffold(
-                    containerColor = Ink,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    topBar = {
+                        Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(36.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                                Column(Modifier.padding(start = 10.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                                    Text("CRAFT ANYTHING", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        when (selected) {
+                                            "Home" -> "Home"
+                                            "Projects" -> "Projects"
+                                            "Build" -> "Build mode"
+                                            "AI" -> "AI chat"
+                                            "Evidence" -> "Evidence"
+                                            "Tools" -> "Tools"
+                                            "Settings" -> "Settings"
+                                            else -> "Workspace"
+                                        },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    isDarkTheme = !isDarkTheme
+                                    context.getSharedPreferences("craft_appearance", MODE_PRIVATE).edit().putBoolean("dark", isDarkTheme).apply()
+                                }) {
+                                    Icon(
+                                        if (isDarkTheme) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
+                                        contentDescription = if (isDarkTheme) "Use light theme" else "Use dark theme",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(onClick = { selected = "Settings" }) {
+                                    Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Box {
+                                    IconButton(onClick = { moreMenuExpanded = true }) {
+                                        Icon(Icons.Rounded.MoreVert, contentDescription = "More", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    DropdownMenu(expanded = moreMenuExpanded, onDismissRequest = { moreMenuExpanded = false }) {
+                                        DropdownMenuItem(text = { Text("Evidence") }, onClick = { selected = "Evidence"; moreMenuExpanded = false })
+                                        DropdownMenuItem(text = { Text("Engine tools") }, onClick = { selected = "Tools"; moreMenuExpanded = false })
+                                    }
+                                }
+                            }
+                        }
+                    },
                     bottomBar = {
-                        NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
+                        NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
                             listOf(
                                 Triple("Home", Icons.Rounded.Home, "Home"),
                                 Triple("Projects", Icons.Rounded.FolderOpen, "Projects"),
                                 Triple("Build", Icons.Rounded.AutoAwesome, "Build"),
-                                Triple("Evidence", Icons.Rounded.Assessment, "Evidence"),
-                                Triple("Tools", Icons.Rounded.Terminal, "Tools")
+                                Triple("AI", Icons.Rounded.Chat, "AI")
                             ).forEach { (label, icon, route) ->
                                 NavigationBarItem(
                                     selected = selected == route,
@@ -973,11 +1029,11 @@ class MainActivity : ComponentActivity() {
                                     icon = { Icon(icon, contentDescription = label) },
                                     label = { Text(label) },
                                     colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = Violet,
-                                        selectedTextColor = Color(0xFFEAE2FF),
-                                        indicatorColor = Violet.copy(alpha = 0.16f),
-                                        unselectedIconColor = Muted,
-                                        unselectedTextColor = Muted
+                                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 )
                             }
@@ -985,32 +1041,8 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { padding ->
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 12.dp)
+                        modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Box(
-                                modifier = Modifier.size(42.dp).background(Violet.copy(alpha = .16f), RoundedCornerShape(14.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.ic_launcher_foreground),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(38.dp)
-                                )
-                            }
-                            Column(Modifier.padding(start = 12.dp)) {
-                                Text("CRAFT ANYTHING", style = MaterialTheme.typography.labelMedium, color = Muted, fontWeight = FontWeight.Bold)
-                                Text(selected, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(Modifier.weight(1f))
-                            IconButton(onClick = { selected = "AI" }) {
-                                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Ask AI", tint = Violet)
-                            }
-                            IconButton(onClick = { selected = "Settings" }) {
-                                Icon(Icons.Rounded.Settings, contentDescription = "Settings", tint = Muted)
-                            }
-                        }
-                        Spacer(Modifier.height(16.dp))
                         when (selected) {
                             "Home" -> HomeScreen(
                                 coreVersion,
