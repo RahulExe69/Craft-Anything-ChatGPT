@@ -6,7 +6,7 @@ use craft_anything_engine::tools::asset_tools::AssetKeys;
 use craft_anything_engines::assets::{AssetProvider, AssetProviders};
 use craft_anything_evidence::{ErrorCode, ToolError};
 use craft_anything_platform::sync::Mutex;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// Service name in the OS keychain.
@@ -103,6 +103,14 @@ impl KeyStore {
     pub fn system() -> Self {
         let no_chain = std::env::var(NO_KEYCHAIN_ENV).is_ok_and(|v| v == "1");
         KeyStore { file: craft_anything_engine::settings::config_dir().join("ai-keys.toml"), use_keychain: !no_chain, use_env: true }
+    }
+
+    /// The system keychain and environment, with the fallback file beside this session's config.
+    /// Desktop builds retain their OS keychain; platforms without one use the private file.
+    pub fn at_config_dir(dir: impl AsRef<Path>) -> Self {
+        let mut store = Self::system();
+        store.file = dir.as_ref().join("ai-keys.toml");
+        store
     }
 
     /// A file-only store (tests).

@@ -246,7 +246,8 @@ pub fn keep_queue_moving(set: &Arc<Mutex<RunSet>>, engine: &Arc<Engine>, setting
                 s.set_limit(session.settings.build.parallel);
             }
             // Each run keeps its own project's feed, so the events aren't needed here.
-            let hub = AiHub::with_stores(engine, settings_path.clone(), crate::KeyStore::system());
+            let config_dir = settings_path.parent().unwrap_or_else(|| Path::new("."));
+            let hub = AiHub::with_stores(engine, settings_path.clone(), crate::KeyStore::at_config_dir(config_dir));
             let _ = s.poll(&hub);
             if s.queue.is_empty() {
                 s.watched = false;

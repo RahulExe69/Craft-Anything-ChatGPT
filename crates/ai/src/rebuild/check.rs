@@ -38,6 +38,37 @@ fn run_tool(app: &Path, tool: &stacks::Toolchain, command: &[String], minutes: u
     run_in(app, &program, &args, minutes, stop)
 }
 
+
+/// Resolve a simple executable name against PATH, while allowing explicit project-local paths.
+fn executable_available(_app: &Path, program: &Path) -> bool {
+    if program.is_absolute() || program.components().count() > 1 {
+        return program.is_file();
+    }
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    std::env::split_paths(&path).any(|directory| directory.join(program).is_file())
+}
+
+/// Android's APK does not ship Node.js/npm. Never start the shared Node.js check blindly:
+/// report the missing runtime before Process returns a generic "not installed or not on PATH".
+fn android_node_runtime_missing(app: &Path, tool: &stacks::Toolchain) -> bool {
+    if !cfg!(target_os = "android") || tool.name != "Node.js" {
+        return false;
+    }
+    tool.command(app, &tool.build)
+        .is_none_or(|(program, _)| !executable_available(app, &program))
+}
+
+fn android_node_unavailable_message(has_page: bool) -> String {
+    let mut message = String::from(
+        "Couldn't run the build on this Android device: this APK does not include Node.js/npm. The project source is saved; no package installation or npm build was run."
+    );
+    if has_page {
+        message.push_str(" An index.html is present and can be inspected in Preview, but that does not prove its framework bundle works.");
+    }
+    message.push_str(" For a browser website, ask Craft Anything to convert it to dependency-free HTML, CSS and browser JavaScript. Framework projects that require npm need a compatible Node.js execution environment.");
+    message
+}
+
 /// What a Unity without a licence prints, and what to tell the person.
 const UNITY_NO_LICENCE: &str = "No valid Unity Editor license";
 const UNITY_LICENCE_FIX: &str = "Unity needs its free licence first: open Unity Hub, sign in and accept the Personal licence, then try again.";
@@ -50,6 +81,7 @@ pub(super) fn own_build_check(app: &Path, place: &str, stack: &str, editor: Opti
         return own_unity_check(app, ed, stop);
     }
     match stacks::toolchain_in(app).filter(|_| engine.is_none()) {
+        Some(tool) if android_node_runtime_missing(app, tool) => (false, android_node_unavailable_message(static_site(app))),
         Some(tool) => own_build(app, tool, stop),
         None if engine.is_some() || static_site(app) => build_check(app, place, stack, editor, stop),
         None => (true, "Nothing was built: Craft Anything doesn't know how to build this kind of project.".into()),
@@ -84,6 +116,9 @@ fn own_build(app: &Path, tool: &stacks::Toolchain, stop: &CheckStop) -> (bool, S
 /// is a project we know no way to test, and the note says so.
 pub(super) fn own_tests_check(app: &Path, tool: Option<&stacks::Toolchain>, stop: &CheckStop) -> (bool, String) {
     let Some(tool) = tool else { return (true, "No tests ran: Craft Anything doesn't know how to test this kind of project.".into()) };
+    if android_node_runtime_missing(app, tool) {
+        return (false, android_node_unavailable_message(static_site(app)));
+    }
     let says_none = |text: &str| tool.no_tests.iter().find(|n| text.contains(n.as_str())).cloned();
     if let Some(name) = &tool.test_script {
         // shortcut: `workspaces=true` in .npmrc can give a root with no script tests; they aren't
@@ -172,6 +207,12 @@ pub(super) fn build_check(app: &Path, place: &str, stack: &str, editor: Option<&
             })
         }
         _ if app.join("Cargo.toml").is_file() => run(Path::new("cargo"), &["build".into(), "--quiet".into()], 2 * 60),
+        _ if app.join("package.json").is_file()
+            && cfg!(target_os = "android")
+            && !executable_available(app, Path::new("npm")) =>
+        {
+            return (false, android_node_unavailable_message(static_site(app)));
+        }
         _ if app.join("package.json").is_file() => run(Path::new(if cfg!(windows) { "npm.cmd" } else { "npm" }), &["run".into(), "build".into()], 2 * 60),
         (None, _) => {
             return stacks::toolchain_in(app).map_or_else(
@@ -393,6 +434,26 @@ func TestAnswer(t *testing.T) {
     }
 
     #[cfg(unix)]
+    #[test]
+    fn android_missing_node_message_never_claims_an_npm_build_succeeded() {
+        let plain = android_node_unavailable_message(false);
+        assert!(plain.contains("does not include Node.js/npm"));
+        assert!(plain.contains("no package installation or npm build was run"));
+        assert!(plain.contains("dependency-free HTML"));
+        let with_page = android_node_unavailable_message(true);
+        assert!(with_page.contains("index.html is present"));
+        assert!(with_page.contains("does not prove its framework bundle works"));
+    }
+
+    #[test]
+    fn executable_lookup_accepts_explicit_files_and_rejects_missing_commands() {
+        let d = tempfile::tempdir().unwrap();
+        let program = d.path().join("tool");
+        std::fs::write(&program, "#!/bin/sh\nexit 0\n").unwrap();
+        assert!(executable_available(d.path(), &program));
+        assert!(!executable_available(d.path(), Path::new("craft-anything-no-such-command")));
+    }
+
     #[test]
     fn a_persons_own_build_is_judged_by_its_toolchain() {
         let (d, stop) = (tempfile::tempdir().unwrap(), CheckStop::default());

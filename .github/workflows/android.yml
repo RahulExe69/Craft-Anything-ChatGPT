@@ -1,0 +1,145 @@
+name: Android APK
+
+on:
+  pull_request:
+    paths:
+      - "apps/craft-anything-android/app/**"
+      - "apps/craft-anything-android/*.gradle.kts"
+      - "apps/craft-anything-android/gradle.properties"
+      - "apps/craft-anything-android/gradle/**"
+      - "apps/craft-anything-android/rust-core/**"
+      - "crates/**"
+      - "vendor/**"
+      - ".cargo/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain"
+      - "rust-toolchain.toml"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+    inputs:
+      build_release:
+        description: "Also build optimized release-preview APKs"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android-jvm-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+          cache-read-only: true
+
+      - name: Run Android JVM unit tests
+        working-directory: apps/craft-anything-android
+        run: gradle --build-cache --parallel :app:testDebugUnitTest
+
+  android-apk:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK and NDK
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.100.0"
+          targets: aarch64-linux-android
+
+      - name: Cache cargo-ndk
+        id: cargo-ndk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-ndk
+          key: cargo-ndk-${{ runner.os }}-v1
+
+      - name: Install cargo-ndk
+        if: steps.cargo-ndk-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-ndk --locked
+
+      - name: Cache Rust dependencies and build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          shared-key: craft-anything-android-arm64-rust-1.100.0
+          cache-on-failure: "true"
+          cache-workspace-crates: "true"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+          # Let this PR reuse and refresh its own Gradle build cache. Forks remain read-only.
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+
+      - name: Build phone APK
+        working-directory: apps/craft-anything-android
+        run: gradle --build-cache --parallel :app:assembleDebug
+
+      - name: Upload phone APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: craft-anything-android-arm64-debug
+          path: apps/craft-anything-android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Build optimized release-preview APK
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_release }}
+        working-directory: apps/craft-anything-android
+        run: gradle --build-cache --parallel :app:assembleRelease
+
+      - name: Upload optimized release-preview APK
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: craft-anything-android-arm64-release-preview
+          path: apps/craft-anything-android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

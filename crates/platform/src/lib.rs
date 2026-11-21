@@ -88,6 +88,11 @@ pub fn end_with_this_process(child: &RunningProcess, leftover: Option<&std::path
 
 /// [`end_with_this_process`] for any owner, checking every `every_secs`. A group is led by the
 /// child [`Process`] started, so its id is the child's.
+#[cfg(target_os = "android")]
+const OWNER_WATCHER_SHELL: &str = "/system/bin/sh";
+#[cfg(not(target_os = "android"))]
+const OWNER_WATCHER_SHELL: &str = "/bin/sh";
+
 fn end_with_owner(owner: u32, group: u32, leftover: Option<&std::path::Path>, every_secs: u32) -> Option<RunningProcess> {
     if !cfg!(unix) {
         return None;
@@ -105,7 +110,7 @@ sleep 2
 kill -KILL "-$g" 2>/dev/null
 case "${d##*/}" in craft-*) rm -rf -- "$d" ;; esac"#;
     let leftover = leftover.map(|p| p.display().to_string()).unwrap_or_default();
-    Process::new("/bin/sh")
+    Process::new(OWNER_WATCHER_SHELL)
         .args(["-c", SCRIPT, "sh", &owner.to_string(), &group.to_string(), &leftover, &every_secs.to_string()])
         .timeout(std::time::Duration::from_secs(7 * 24 * 3600))
         .label("end with owner")

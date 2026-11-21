@@ -1,0 +1,29 @@
+[package]
+name = "craft-anything-android-bridge"
+description = "JNI bridge from the native Craft Anything Rust engine to the Android app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+# Use jni-rs' audited name-mangling macro so this bridge can keep unsafe Rust forbidden.
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[lib]
+name = "craft_anything_android"
+crate-type = ["cdylib"]
+
+[dependencies]
+craft-anything-ai = { workspace = true }
+craft-anything-engine = { workspace = true }
+craft-anything-evidence = { workspace = true }
+craft-anything-platform = { workspace = true }
+serde_json = { workspace = true }
+jni = "0.22"
+serde = { workspace = true }
+log = { workspace = true }
