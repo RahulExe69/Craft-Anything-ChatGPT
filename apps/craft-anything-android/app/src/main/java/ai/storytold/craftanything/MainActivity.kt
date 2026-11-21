@@ -244,6 +244,13 @@ class MainActivity : ComponentActivity() {
     private external fun nativeVersion(): String
     private external fun nativeToolCatalog(): String
     private external fun nativeCallTool(toolId: String, paramsJson: String, consentGranted: Boolean): String
+    private external fun nativeRunProjectCommand(
+        projectsDir: String,
+        projectFolder: String,
+        appFolder: String,
+        command: String,
+        timeoutSecs: Int
+    ): String
     private external fun nativeAiStatus(): String
     private external fun nativeAiAddBackend(inputJson: String): String
     private external fun nativeAiSetBackendKey(name: String, key: String): String
@@ -308,6 +315,10 @@ class MainActivity : ComponentActivity() {
             var projectExportBusy by remember { mutableStateOf(false) }
             var projectExportMessage by remember { mutableStateOf("") }
             var pendingExportAppFolder by remember { mutableStateOf("") }
+            var terminalCommandResultJson by remember { mutableStateOf("") }
+            var terminalCommandError by remember { mutableStateOf("") }
+            var terminalCommandRunning by remember { mutableStateOf(false) }
+            var terminalCommandFolder by remember { mutableStateOf("") }
             var previewUrl by remember { mutableStateOf("") }
             var previewLoading by remember { mutableStateOf(false) }
             var previewError by remember { mutableStateOf("") }
@@ -670,6 +681,38 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     projectFileSaving = false
+                }
+            }
+
+            val runProjectCommand: (String, String, String) -> Unit = { projectFolder, appFolder, command ->
+                if (!terminalCommandRunning && command.isNotBlank()) {
+                    terminalCommandFolder = projectFolder
+                    terminalCommandResultJson = ""
+                    terminalCommandError = ""
+                    terminalCommandRunning = true
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val raw = nativeRunProjectCommand(
+                                    File(context.filesDir, "projects").absolutePath,
+                                    projectFolder,
+                                    appFolder,
+                                    command,
+                                    120
+                                )
+                                val envelope = JSONObject(raw)
+                                if (!envelope.optBoolean("ok")) {
+                                    throw IOException(envelope.optString("error").ifBlank { "The command could not run." })
+                                }
+                                raw
+                            }
+                        }
+                        if (terminalCommandFolder == projectFolder) {
+                            result.onSuccess { terminalCommandResultJson = it }
+                                .onFailure { terminalCommandError = it.message ?: "The command could not run." }
+                        }
+                        terminalCommandRunning = false
+                    }
                 }
             }
 
@@ -1099,6 +1142,11 @@ class MainActivity : ComponentActivity() {
                                     projectPollGeneration += 1
                                     startBuild(params)
                                 },
+                                terminalCommandFolder = terminalCommandFolder,
+                                terminalCommandResultJson = terminalCommandResultJson,
+                                terminalCommandError = terminalCommandError,
+                                terminalCommandRunning = terminalCommandRunning,
+                                onRunProjectCommand = runProjectCommand,
                                 filesJson = projectFilesJson,
                                 selectedFileJson = selectedProjectFileJson,
                                 filesLoading = projectFilesLoading,

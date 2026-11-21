@@ -286,6 +286,11 @@ internal fun ProjectsScreen(
     exportBusy: Boolean = false,
     exportMessage: String = "",
     onMakeStaticWebsite: (String) -> Unit = {},
+    terminalCommandFolder: String = "",
+    terminalCommandResultJson: String = "",
+    terminalCommandError: String = "",
+    terminalCommandRunning: Boolean = false,
+    onRunProjectCommand: (String, String, String) -> Unit = { _, _, _ -> },
     onStartProjectPreview: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -377,6 +382,11 @@ internal fun ProjectsScreen(
                 exportBusy = exportBusy,
                 exportMessage = exportMessage,
                 onMakeStaticWebsite = onMakeStaticWebsite,
+                terminalCommandFolder = terminalCommandFolder,
+                terminalCommandResultJson = terminalCommandResultJson,
+                terminalCommandError = terminalCommandError,
+                terminalCommandRunning = terminalCommandRunning,
+                onRunProjectCommand = onRunProjectCommand,
                 onStartProjectPreview = onStartProjectPreview
             )
         } else if (projects.isEmpty() && !loading) {
@@ -484,6 +494,11 @@ private fun ProjectDetails(
     exportBusy: Boolean,
     exportMessage: String,
     onMakeStaticWebsite: (String) -> Unit,
+    terminalCommandFolder: String,
+    terminalCommandResultJson: String,
+    terminalCommandError: String,
+    terminalCommandRunning: Boolean,
+    onRunProjectCommand: (String, String, String) -> Unit,
     onStartProjectPreview: (String) -> Unit
 ) {
     val conversation = project.optJSONObject("conversation")
@@ -585,8 +600,14 @@ private fun ProjectDetails(
                 onCloseFile = onCloseProjectFile
             )
             "Console" -> ProjectConsolePanel(
+                projectFolder = folder,
+                appFolder = appFolder,
                 filesJson = filesJson,
                 activityJson = activityJson,
+                commandResultJson = terminalCommandResultJson.takeIf { terminalCommandFolder == folder }.orEmpty(),
+                commandError = terminalCommandError.takeIf { terminalCommandFolder == folder }.orEmpty(),
+                commandRunning = terminalCommandRunning && terminalCommandFolder == folder,
+                onRunCommand = { command -> onRunProjectCommand(folder, appFolder, command) },
                 onMakeStaticWebsite = { onMakeStaticWebsite(folder) }
             )
             "Activity" -> BuildActivityPanel(
