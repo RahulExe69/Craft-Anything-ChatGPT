@@ -42,7 +42,7 @@ internal fun ProjectPhaseStepper(status: String, statusLabel: String) {
     val active = projectPhaseIndex(status)
     val message = projectPhaseMessage(status)
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(18.dp)
     ) {
         Column(
@@ -51,7 +51,7 @@ internal fun ProjectPhaseStepper(status: String, statusLabel: String) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("PROJECT PROGRESS", color = Color(0xFFAD91FF), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(statusLabel, color = if (message != null) Color(0xFFFFCC80) else Color(0xFFB9B5C6), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                Text(statusLabel, color = if (message != null) Color(0xFFFFCC80) else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 craftBuildPhases.forEachIndexed { index, title ->
@@ -69,7 +69,7 @@ internal fun ProjectPhaseStepper(status: String, statusLabel: String) {
                     ) {
                         Box(
                             modifier = Modifier.size(25.dp).background(
-                                if (current) Color(0xFF382D54) else if (complete) Color(0xFF1D382D) else Color(0xFF23222B),
+                                if (current) Color(0xFF382D54) else if (complete) Color(0xFF1D382D) else MaterialTheme.colorScheme.surfaceVariant,
                                 CircleShape
                             ),
                             contentAlignment = Alignment.Center
@@ -83,7 +83,7 @@ internal fun ProjectPhaseStepper(status: String, statusLabel: String) {
                         }
                         Text(
                             title,
-                            color = if (current) Color(0xFFE3D9FF) else if (complete) Color(0xFF9BD9B7) else Color(0xFF898594),
+                            color = if (current) MaterialTheme.colorScheme.onPrimaryContainer else if (complete) Color(0xFF9BD9B7) else MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = if (current) FontWeight.Bold else FontWeight.Medium,
                             maxLines = 1
@@ -94,7 +94,7 @@ internal fun ProjectPhaseStepper(status: String, statusLabel: String) {
             if (message != null) {
                 Text(message, color = Color(0xFFFFD18A), style = MaterialTheme.typography.bodySmall)
             } else if (active == null) {
-                Text("The project is waiting for its next action.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+                Text("The project is waiting for its next action.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
     }

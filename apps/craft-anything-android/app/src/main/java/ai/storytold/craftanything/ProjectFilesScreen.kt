@@ -116,19 +116,19 @@ internal fun ProjectFilesPanel(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (selected == null && selectedFileLoading) {
-            Text("Opening source file…", color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+            Text("Opening source file…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
         if (selected != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = onCloseFile) { Text("All files") }
                 Spacer(Modifier.weight(1f))
-                Text(formatProjectFileSize(selected.size), color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                Text(formatProjectFileSize(selected.size), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
             Text(selected.path, fontWeight = FontWeight.SemiBold)
             if (editing) {
                 Text(
                     "Editing a local project file · changes are saved on this device",
-                    color = Color(0xFFB9B5C6),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall
                 )
                 OutlinedTextField(
@@ -139,7 +139,7 @@ internal fun ProjectFilesPanel(
                     maxLines = 34,
                     textStyle = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
-                        color = Color(0xFFE0DCEC)
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(14.dp)
                 )
@@ -170,13 +170,13 @@ internal fun ProjectFilesPanel(
                 }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF111117)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
                         selected.content,
                         modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(14.dp),
-                        color = Color(0xFFD8D4E2),
+                        color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
                     )
                 }
@@ -190,7 +190,7 @@ internal fun ProjectFilesPanel(
             }
             Text(
                 "Source editor · files stay in this app's private project folder",
-                color = Color(0xFF9A97A8),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelSmall
             )
         } else {
@@ -199,7 +199,7 @@ internal fun ProjectFilesPanel(
                     Text("Project source", fontWeight = FontWeight.SemiBold)
                     Text(
                         files.size.toString() + " files indexed" + if (truncated) " · listing capped at 300" else "",
-                        color = Color(0xFF9A97A8),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
@@ -216,18 +216,18 @@ internal fun ProjectFilesPanel(
                 placeholder = { Text("src, MainActivity, package.json…") }
             )
             if (loading && files.isEmpty()) {
-                Text("Reading the project folder…", color = Color(0xFFB9B5C6))
+                Text("Reading the project folder…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (error.isNotBlank()) {
-                Text(error, color = Color(0xFFFFA9B8), style = MaterialTheme.typography.bodySmall)
+                Text(error, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
             }
             if (!loading && files.isEmpty() && error.isBlank()) {
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F))) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("No source files found", fontWeight = FontWeight.SemiBold)
                         Text(
                             "This project may not have generated its app files yet, or its output may be a native artifact.",
-                            color = Color(0xFF9A97A8),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall
                         )
                         Button(onClick = onRefresh) { Text("Scan again") }
@@ -239,7 +239,7 @@ internal fun ProjectFilesPanel(
                     modifier = Modifier.fillMaxWidth().then(
                         if (file.kind == "text") Modifier.clickable { onOpenFile(file.path) } else Modifier
                     ),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Row(
@@ -249,24 +249,24 @@ internal fun ProjectFilesPanel(
                     ) {
                         Text(
                             file.name.substringAfterLast('.', "FILE").take(5).uppercase(),
-                            color = Color(0xFFBFAAFF),
+                            color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold
                         )
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(file.name, fontWeight = FontWeight.Medium, maxLines = 1)
-                            Text(file.path, color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall, maxLines = 2)
+                            Text(file.path, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, maxLines = 2)
                         }
                         Text(
                             if (file.kind == "text") formatProjectFileSize(file.size) else "Binary",
-                            color = Color(0xFF9A97A8),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }
             }
             if (filtered.isEmpty() && files.isNotEmpty()) {
-                Text("No files match that search.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+                Text("No files match that search.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
     }

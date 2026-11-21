@@ -177,21 +177,21 @@ private fun ProjectConversationPanel(
         confirmButton = { Button(onClick = { val request = draft.trim(); confirming = false; draft = ""; onFollowUp(projectFolder, request) }) { Text("Start build") } },
         dismissButton = { TextButton(onClick = { confirming = false }) { Text("Cancel") } }
     )
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFF171720)), shape = RoundedCornerShape(20.dp)) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Builder conversation", fontWeight = FontWeight.Bold)
-                    Text(entries.size.toString() + " messages · saved with this project", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                    Text(entries.size.toString() + " messages · saved with this project", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 }
                 if (running) Text("LIVE", color = Color(0xFF71D5A2), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             }
-            if (entries.isEmpty()) Text("Your conversation with the builder will appear here as it plans, makes changes and checks the project.", color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+            if (entries.isEmpty()) Text("Your conversation with the builder will appear here as it plans, makes changes and checks the project.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             entries.takeLast(80).forEach { entry ->
-                val bg = when { entry.user -> Color(0xFF30254A); entry.error -> Color(0xFF3A2029); else -> Color(0xFF20202A) }
+                val bg = when { entry.user -> MaterialTheme.colorScheme.primaryContainer; entry.error -> MaterialTheme.colorScheme.errorContainer; else -> MaterialTheme.colorScheme.surfaceVariant }
                 Column(Modifier.fillMaxWidth().background(bg, RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(entry.role.uppercase(), color = if (entry.error) Color(0xFFFFA9B8) else Color(0xFFB79CFF), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(entry.role.uppercase(), color = if (entry.error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         if (entry.streaming) Text("  ·  WORKING", color = Color(0xFF71D5A2), style = MaterialTheme.typography.labelSmall)
                     }
                     Text(entry.text, style = MaterialTheme.typography.bodyMedium)
@@ -213,7 +213,7 @@ private fun ProjectConversationPanel(
                 }, enabled = status != null && draft.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
                     Text(if (running) "Send direction" else "Start follow-up")
                 }
-                if (!running) Text("A follow-up starts a new builder run on this existing project.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                if (!running) Text("A follow-up starts a new builder run on this existing project.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -288,7 +288,7 @@ internal fun ProjectsScreen(
                 )
                 Text(
                     if (detailResult == null) "${projects.size} projects · this device" else "Project workspace",
-                    color = Color(0xFF9A97A8),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -309,8 +309,8 @@ internal fun ProjectsScreen(
         }
 
         if (error.isNotBlank()) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF3B2029))) {
-                Text(error, modifier = Modifier.padding(14.dp), color = Color(0xFFFFC2CD))
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Text(error, modifier = Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
 
@@ -348,7 +348,7 @@ internal fun ProjectsScreen(
         } else if (projects.isEmpty() && !loading) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
@@ -358,7 +358,7 @@ internal fun ProjectsScreen(
                     Text("Nothing here yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
                         "Projects created on this device will appear here. Open a file from Home to begin an investigation, or use the Tools tab to explore the project tools.",
-                        color = Color(0xFFB9B5C6),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
                     Button(onClick = onRefresh, enabled = !loading) { Text("Check again") }
@@ -372,7 +372,7 @@ internal fun ProjectsScreen(
                 items(projects, key = { it.folder }) { project ->
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable { onOpenProject(project.folder) },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(22.dp)
                     ) {
                         Column(
@@ -392,7 +392,7 @@ internal fun ProjectsScreen(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
                                         .background(
-                                            if (project.waiting > 0) Color(0xFF3A3021) else Color(0xFF2A2538),
+                                            if (project.waiting > 0) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
                                             RoundedCornerShape(50)
                                         )
                                         .padding(horizontal = 9.dp, vertical = 5.dp)
@@ -400,14 +400,14 @@ internal fun ProjectsScreen(
                             }
                             Text(
                                 project.request,
-                                color = Color(0xFFB9B5C6),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 3
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     if (project.waiting == 1) "1 question waiting" else "${project.waiting} questions waiting",
-                                    color = if (project.waiting > 0) Color(0xFFFFC46B) else Color(0xFF9A97A8),
+                                    color = if (project.waiting > 0) Color(0xFFFFC46B) else MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 Spacer(Modifier.weight(1f))
@@ -469,14 +469,14 @@ private fun ProjectDetails(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D))) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(project.optString("status_label", project.optString("status")), color = Color(0xFF9B7BFF), fontWeight = FontWeight.Bold)
                 Text(project.optString("request"), style = MaterialTheme.typography.bodyMedium)
-                Text(folder, color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+                Text(folder, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 val stack = project.opt("stack")?.takeUnless { it == JSONObject.NULL }?.toString().orEmpty()
                 if (stack.isNotBlank() && stack != "[]") {
-                    Text("Stack: $stack", color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                    Text("Stack: $stack", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
                 OutlinedButton(
                     onClick = { onExportProject(project.optString("name", "craft-project"), appFolder) },
@@ -485,7 +485,7 @@ private fun ProjectDetails(
                     Text(if (exportBusy) "Preparing ZIP…" else "Export project ZIP")
                 }
                 if (exportMessage.isNotBlank()) {
-                    Text(exportMessage, color = if (exportMessage.startsWith("Exported")) Color(0xFF83D7AA) else Color(0xFFB9B5C6), style = MaterialTheme.typography.labelSmall)
+                    Text(exportMessage, color = if (exportMessage.startsWith("Exported")) Color(0xFF83D7AA) else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -501,14 +501,14 @@ private fun ProjectDetails(
                 Card(
                     modifier = Modifier.width(82.dp).clickable { workspaceTab = tab },
                     colors = CardDefaults.cardColors(
-                        containerColor = if (workspaceTab == tab) Color(0xFF30254A) else Color(0xFF17171F)
+                        containerColor = if (workspaceTab == tab) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
                         tab,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                        color = if (workspaceTab == tab) Color(0xFFE9DFFF) else Color(0xFF9A97A8),
+                        color = if (workspaceTab == tab) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         fontWeight = if (workspaceTab == tab) FontWeight.SemiBold else FontWeight.Normal,
                         style = MaterialTheme.typography.labelMedium
@@ -611,7 +611,7 @@ private fun BuildActivityPanel(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF171720)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(18.dp)
     ) {
         Column(
@@ -623,7 +623,7 @@ private fun BuildActivityPanel(
                     Text("Live build activity", fontWeight = FontWeight.Bold)
                     Text(
                         currentStatus,
-                        color = if (running || queuePosition != null) Color(0xFF9B7BFF) else Color(0xFFB9B5C6),
+                        color = if (running || queuePosition != null) Color(0xFF9B7BFF) else MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
@@ -634,13 +634,13 @@ private fun BuildActivityPanel(
                 }
             }
             if (note.isNotBlank()) {
-                Text(note, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
             if (message.isNotBlank()) {
                 Text(message, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
             }
             if (error.isNotBlank()) {
-                Text(error, color = Color(0xFFFFA9B8), style = MaterialTheme.typography.bodySmall)
+                Text(error, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
             }
             if (running) {
                 OutlinedTextField(
@@ -665,19 +665,19 @@ private fun BuildActivityPanel(
                 Text("Activity timeline", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text(
                     "${lines.size} recent events",
-                    color = Color(0xFF9A97A8),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall
                 )
             }
             if (lines.isEmpty()) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF20202A)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         "Your builder's steps will appear here as they happen — planning, file changes, commands and checks.",
-                        color = Color(0xFFB9B5C6),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(12.dp)
                     )
@@ -716,7 +716,7 @@ private fun BuildActivityRow(line: String) {
         )
         Text(
             title,
-            color = if (warning) Color(0xFFFFA9B8) else Color(0xFFCFCCD9),
+            color = if (warning) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
             maxLines = 4,
             modifier = Modifier.weight(1f)
@@ -737,7 +737,7 @@ private fun ProjectInboxCard(
 
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = if (kind == "approval") Color(0xFF2C261C) else Color(0xFF20202A)
+            containerColor = if (kind == "approval") MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -747,14 +747,14 @@ private fun ProjectInboxCard(
         ) {
             Text(
                 if (kind == "approval") "Approval request" else "Question",
-                color = if (kind == "approval") Color(0xFFFFD99A) else Color(0xFF9B7BFF),
+                color = if (kind == "approval") MaterialTheme.colorScheme.onTertiaryContainer else Color(0xFF9B7BFF),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold
             )
             Text(request.optString("title", "Project request"), fontWeight = FontWeight.SemiBold)
             val detail = request.optString("detail")
             if (detail.isNotBlank()) {
-                Text(detail, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
 
             if (kind == "approval") {
@@ -798,10 +798,10 @@ private fun ProjectInboxCard(
 
 @Composable
 private fun MetricCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D))) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(label, color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
