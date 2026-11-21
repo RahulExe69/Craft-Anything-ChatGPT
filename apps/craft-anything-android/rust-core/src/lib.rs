@@ -8,6 +8,7 @@ use craft_anything_platform::sync::Mutex;
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
 static ENGINE: OnceLock<Arc<Engine>> = OnceLock::new();
 static AI_HUB: OnceLock<AiHub> = OnceLock::new();
@@ -195,13 +196,82 @@ fn dispatch_tool(engine: &Engine, tool_id: &str, params_json: &str, consent_gran
     }
 }
 
+
+/// Execute one explicitly approved command inside an existing private Android project folder.
+/// The caller runs this on an IO dispatcher; command execution is never performed on the UI thread.
+fn run_project_command_json(
+    projects_dir: &str,
+    project_folder: &str,
+    app_folder: &str,
+    command: &str,
+    timeout_secs: i32,
+) -> String {
+    let run = || -> Result<Value, String> {
+        if command.trim().is_empty() {
+            return Err("Enter a command to run.".to_string());
+        }
+        if command.len() > 4096 || command.contains('\0') {
+            return Err("Commands are limited to 4,096 bytes and cannot contain NUL characters.".to_string());
+        }
+
+        let projects_root = std::path::Path::new(projects_dir)
+            .canonicalize()
+            .map_err(|error| format!("The private projects directory isn't available: {error}"))?;
+        let project_root = std::path::Path::new(project_folder)
+            .canonicalize()
+            .map_err(|error| format!("The selected project folder isn't available: {error}"))?;
+        if project_root == projects_root || !project_root.starts_with(&projects_root) {
+            return Err("Commands can only run inside a project managed by this app.".to_string());
+        }
+        if !project_root.join("craft.json").is_file() {
+            return Err("The selected folder isn't a saved Craft Anything project.".to_string());
+        }
+
+        let app = std::path::Path::new(app_folder)
+            .canonicalize()
+            .map_err(|error| format!("The project's source folder isn't available: {error}"))?;
+        if !app.starts_with(&project_root) || !app.is_dir() {
+            return Err("The command working folder must stay inside this project's source directory.".to_string());
+        }
+
+        let shell = if cfg!(target_os = "android") { "/system/bin/sh" } else { "sh" };
+        let output = craft_anything_platform::Process::new(shell)
+            .args(["-c", command])
+            .cwd(&app)
+            .timeout(Duration::from_secs(timeout_secs.clamp(1, 120) as u64))
+            .stdout_cap(1024 * 1024)
+            .stderr_cap(1024 * 1024)
+            .label("the project terminal command")
+            .remediation("Check that the command exists on this Android device. This APK does not bundle Node.js or desktop package managers.")
+            .run()
+            .map_err(|error| error.message)?;
+
+        Ok(serde_json::json!({
+            "cwd": app.display().to_string(),
+            "command": command,
+            "exit_code": output.code,
+            "succeeded": output.success,
+            "stdout": output.stdout_end_text(),
+            "stderr": output.stderr_end_text(),
+            "stdout_truncated": output.stdout_truncated,
+            "stderr_truncated": output.stderr_truncated,
+            "duration_ms": output.duration.as_millis(),
+        }))
+    };
+
+    match run() {
+        Ok(result) => serde_json::json!({ "ok": true, "output": { "result": result } }).to_string(),
+        Err(message) => serde_json::json!({ "ok": false, "error": message }).to_string(),
+    }
+}
+
 // Keep the JNI ABI naming in jni-rs' audited attribute macro. This avoids hand-written
 // unsafe symbol attributes and lets the bridge crate forbid unsafe code outright.
 mod jni_exports {
     use super::{add_android_backend, ai_chat, ai_error, ai_hub, ai_ok, ai_status_json, dispatch_tool, engine, set_android_role, tool_catalog_json};
     use jni::errors::ThrowRuntimeExAndDefault;
     use jni::objects::{JObject, JString};
-    use jni::sys::{jboolean, jstring};
+    use jni::sys::{jboolean, jint, jstring};
     use jni::{EnvUnowned, jni_mangle};
 
     #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeAiStatus")]
@@ -489,6 +559,35 @@ mod jni_exports {
             })
             .resolve::<ThrowRuntimeExAndDefault>()
     }
+    /// Run an explicitly approved command in the app-private project directory.
+    #[jni_mangle("ai.storytold.craftanything.MainActivity", "nativeRunProjectCommand")]
+    pub fn native_run_project_command<'frame>(
+        mut unowned_env: EnvUnowned<'frame>,
+        _this: JObject<'frame>,
+        projects_dir: JString<'frame>,
+        project_folder: JString<'frame>,
+        app_folder: JString<'frame>,
+        command: JString<'frame>,
+        timeout_secs: jint,
+    ) -> jstring {
+        unowned_env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let projects_dir = projects_dir.try_to_string(env)?;
+                let project_folder = project_folder.try_to_string(env)?;
+                let app_folder = app_folder.try_to_string(env)?;
+                let command = command.try_to_string(env)?;
+                let response = run_project_command_json(
+                    &projects_dir,
+                    &project_folder,
+                    &app_folder,
+                    &command,
+                    timeout_secs,
+                );
+                Ok(env.new_string(response)?.into_raw())
+            })
+            .resolve::<ThrowRuntimeExAndDefault>()
+    }
+
 }
 
 #[cfg(test)]
@@ -497,6 +596,40 @@ mod tests {
 
     fn test_engine() -> Engine {
         Engine::new(Session::new(Settings::default()))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn project_terminal_runs_inside_the_private_project_and_returns_real_streams_and_exit_code() {
+        let root = std::env::temp_dir().join(format!("craft-android-command-test-{}", std::process::id()));
+        let project = root.join("site");
+        let app = project.join("app");
+        assert!(std::fs::create_dir_all(&app).is_ok());
+        assert!(std::fs::write(project.join("craft.json"), "{}").is_ok());
+
+        let response = run_project_command_json(
+            &root.display().to_string(),
+            &project.display().to_string(),
+            &app.display().to_string(),
+            "printf 'hello\\n'; printf 'problem\\n' >&2; exit 7",
+            10,
+        );
+        let _ = std::fs::remove_dir_all(&root);
+
+        let value: Value = serde_json::from_str(&response).unwrap_or(Value::Null);
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["output"]["result"]["exit_code"], 7);
+        assert_eq!(value["output"]["result"]["succeeded"], false);
+        assert!(value["output"]["result"]["stdout"].as_str().unwrap_or_default().contains("hello"));
+        assert!(value["output"]["result"]["stderr"].as_str().unwrap_or_default().contains("problem"));
+    }
+
+    #[test]
+    fn project_terminal_rejects_paths_outside_the_projects_root() {
+        let response = run_project_command_json("/tmp", "/etc", "/etc", "pwd", 5);
+        let value: Value = serde_json::from_str(&response).unwrap_or(Value::Null);
+        assert_eq!(value["ok"], false);
+        assert!(value["error"].as_str().unwrap_or_default().contains("inside a project"));
     }
 
     #[test]
