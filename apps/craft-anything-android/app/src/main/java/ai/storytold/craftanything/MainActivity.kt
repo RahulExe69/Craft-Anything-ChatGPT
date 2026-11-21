@@ -1091,9 +1091,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 exportBusy = projectExportBusy,
                                 exportMessage = projectExportMessage,
-                                onInstallDependencies = { projectFolder, prompt ->
+                                onMakeStaticWebsite = { projectFolder ->
                                     val params = JSONObject()
-                                        .put("request", prompt)
+                                        .put("request", androidStaticWebsitePrompt())
                                         .put("project", projectFolder)
                                         .put("resume", false)
                                         .put("rounds", 2)

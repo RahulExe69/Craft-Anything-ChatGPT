@@ -15,9 +15,19 @@ class ProjectProgressTest {
     }
 
     @Test
-    fun waitingAndPausedStatesAreNotMisrepresentedAsACompletedStage() {
-        assertNull(projectPhaseIndex("needs_you"))
-        assertNull(projectPhaseIndex("stopped"))
+    fun needsYouKeepsTheLastCheckStageVisibleInsteadOfGreyingTheWholeStepper() {
+        assertEquals(2, projectPhaseIndex("needs_you", hasCheck = true))
+        assertEquals(1, projectPhaseIndex("needs_you", hasCheck = false))
+        assertEquals(1, projectPhaseIndex("stopped"))
+    }
+
+    @Test
+    fun trulyUnknownStatesDoNotPretendToBeACompletedStage() {
+        assertNull(projectPhaseIndex("unknown"))
+    }
+
+    @Test
+    fun waitingAndPausedStatesHaveUsefulMessages() {
         assertEquals(
             "This project needs your answer or approval before it can continue.",
             projectPhaseMessage("needs_you")
