@@ -72,8 +72,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-private val Ink = Color(0xFFF7F6FA)
-private val Panel = Color.White
 private val Violet = Color(0xFF7350D5)
 private val Muted = Color(0xFF777282)
 private const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
@@ -1350,7 +1348,7 @@ private fun HomeScreen(
         Text("Bring something to work with", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Card(
             modifier = Modifier.fillMaxWidth().clickable(onClick = openFile),
-            colors = CardDefaults.cardColors(containerColor = Panel),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(20.dp)
         ) {
             Row(
@@ -1374,7 +1372,7 @@ private fun HomeScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Card(
                 modifier = Modifier.weight(1f).clickable(onClick = openAi),
-                colors = CardDefaults.cardColors(containerColor = Panel),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(18.dp)
             ) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1385,7 +1383,7 @@ private fun HomeScreen(
             }
             Card(
                 modifier = Modifier.weight(1f).clickable(onClick = openTools),
-                colors = CardDefaults.cardColors(containerColor = Panel),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(18.dp)
             ) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1397,7 +1395,7 @@ private fun HomeScreen(
         }
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = Panel),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(18.dp),
             modifier = Modifier.fillMaxWidth()
         ) {

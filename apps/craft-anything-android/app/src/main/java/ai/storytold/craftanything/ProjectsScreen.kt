@@ -29,6 +29,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Tab
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -528,27 +530,18 @@ private fun ProjectDetails(
             statusLabel = project.optString("status_label", project.optString("status").replace('_', ' ').replaceFirstChar { it.uppercase() }),
             hasCheck = project.opt("last_check")?.let { it != JSONObject.NULL } == true
         )
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        val workspaceTabs = listOf("Chat", "Preview", "Code", "Console", "Activity")
+        ScrollableTabRow(
+            selectedTabIndex = workspaceTabs.indexOf(workspaceTab).coerceAtLeast(0),
+            edgePadding = 0.dp,
+            containerColor = MaterialTheme.colorScheme.background
         ) {
-            listOf("Chat", "Preview", "Code", "Console", "Activity").forEach { tab ->
-                Card(
-                    modifier = Modifier.width(82.dp).clickable { workspaceTab = tab },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (workspaceTab == tab) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        tab,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                        color = if (workspaceTab == tab) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        fontWeight = if (workspaceTab == tab) FontWeight.SemiBold else FontWeight.Normal,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
+            workspaceTabs.forEach { tab ->
+                Tab(
+                    selected = workspaceTab == tab,
+                    onClick = { workspaceTab = tab },
+                    text = { Text(tab, maxLines = 1) }
+                )
             }
         }
 
