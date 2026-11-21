@@ -155,6 +155,17 @@ internal fun parseProjectConversation(conversation: JSONObject?): List<ProjectCo
     }.filter { it.text.isNotBlank() }
 }
 
+
+internal fun isMissingAndroidNodeRuntime(entries: List<ProjectConversationEntry>): Boolean =
+    entries.any { entry ->
+        entry.error &&
+            (entry.text.contains("npm", ignoreCase = true) || entry.text.contains("Node.js", ignoreCase = true)) &&
+            (entry.text.contains("not installed", ignoreCase = true) ||
+                entry.text.contains("isn't installed", ignoreCase = true) ||
+                entry.text.contains("does not include", ignoreCase = true) ||
+                entry.text.contains("not on your PATH", ignoreCase = true))
+    }
+
 @Composable
 private fun ProjectConversationPanel(
     projectFolder: String,
@@ -177,6 +188,25 @@ private fun ProjectConversationPanel(
         confirmButton = { Button(onClick = { val request = draft.trim(); confirming = false; draft = ""; onFollowUp(projectFolder, request) }) { Text("Start build") } },
         dismissButton = { TextButton(onClick = { confirming = false }) { Text("Cancel") } }
     )
+    if (isMissingAndroidNodeRuntime(entries)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("Node.js isn't available on this device", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
+                Text(
+                    "Your generated source is saved, but this APK cannot run npm or install JavaScript packages. For a website, Craft Anything can convert the project to browser-native HTML, CSS and JavaScript so it can run in local Preview.",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Button(onClick = { onFollowUp(projectFolder, androidStaticWebsitePrompt()) }) {
+                    Text("Make this website run without npm")
+                }
+            }
+        }
+    }
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -253,7 +283,7 @@ internal fun ProjectsScreen(
     onExportProject: (String, String) -> Unit = { _, _ -> },
     exportBusy: Boolean = false,
     exportMessage: String = "",
-    onInstallDependencies: (String, String) -> Unit = { _, _ -> },
+    onMakeStaticWebsite: (String) -> Unit = {},
     onStartProjectPreview: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -344,7 +374,7 @@ internal fun ProjectsScreen(
                 onExportProject = onExportProject,
                 exportBusy = exportBusy,
                 exportMessage = exportMessage,
-                onInstallDependencies = onInstallDependencies,
+                onMakeStaticWebsite = onMakeStaticWebsite,
                 onStartProjectPreview = onStartProjectPreview
             )
         } else if (projects.isEmpty() && !loading) {
@@ -451,7 +481,7 @@ private fun ProjectDetails(
     onExportProject: (String, String) -> Unit,
     exportBusy: Boolean,
     exportMessage: String,
-    onInstallDependencies: (String, String) -> Unit,
+    onMakeStaticWebsite: (String) -> Unit,
     onStartProjectPreview: (String) -> Unit
 ) {
     val conversation = project.optJSONObject("conversation")
@@ -564,7 +594,7 @@ private fun ProjectDetails(
             "Console" -> ProjectConsolePanel(
                 filesJson = filesJson,
                 activityJson = activityJson,
-                onInstallDependencies = { prompt -> onInstallDependencies(folder, prompt) }
+                onMakeStaticWebsite = { onMakeStaticWebsite(folder) }
             )
             "Activity" -> BuildActivityPanel(
                 projectFolder = folder,
