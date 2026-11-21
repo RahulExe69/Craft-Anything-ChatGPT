@@ -40,7 +40,7 @@ fn run_tool(app: &Path, tool: &stacks::Toolchain, command: &[String], minutes: u
 
 
 /// Resolve a simple executable name against PATH, while allowing explicit project-local paths.
-fn executable_available(app: &Path, program: &Path) -> bool {
+fn executable_available(_app: &Path, program: &Path) -> bool {
     if program.is_absolute() || program.components().count() > 1 {
         return program.is_file();
     }
@@ -116,6 +116,9 @@ fn own_build(app: &Path, tool: &stacks::Toolchain, stop: &CheckStop) -> (bool, S
 /// is a project we know no way to test, and the note says so.
 pub(super) fn own_tests_check(app: &Path, tool: Option<&stacks::Toolchain>, stop: &CheckStop) -> (bool, String) {
     let Some(tool) = tool else { return (true, "No tests ran: Craft Anything doesn't know how to test this kind of project.".into()) };
+    if android_node_runtime_missing(app, tool) {
+        return (false, android_node_unavailable_message(static_site(app)));
+    }
     let says_none = |text: &str| tool.no_tests.iter().find(|n| text.contains(n.as_str())).cloned();
     if let Some(name) = &tool.test_script {
         // shortcut: `workspaces=true` in .npmrc can give a root with no script tests; they aren't
