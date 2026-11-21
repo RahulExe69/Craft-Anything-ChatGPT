@@ -207,7 +207,10 @@ pub(super) fn build_check(app: &Path, place: &str, stack: &str, editor: Option<&
             })
         }
         _ if app.join("Cargo.toml").is_file() => run(Path::new("cargo"), &["build".into(), "--quiet".into()], 2 * 60),
-        _ if app.join("package.json").is_file() && cfg!(target_os = "android") && !executable_available(app, Path::new("npm")) => {
+        _ if app.join("package.json").is_file()
+            && cfg!(target_os = "android")
+            && !executable_available(app, Path::new("npm")) =>
+        {
             return (false, android_node_unavailable_message(static_site(app)));
         }
         _ if app.join("package.json").is_file() => run(Path::new(if cfg!(windows) { "npm.cmd" } else { "npm" }), &["run".into(), "build".into()], 2 * 60),

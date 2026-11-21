@@ -20,6 +20,6 @@ class AndroidExecutionPolicyTest {
     fun doesNotDuplicateAndroidRuntimeGuidance() {
         val once = applyAndroidExecutionGuidance("""{"request":"Build a website"}""")
         val twice = applyAndroidExecutionGuidance(once)
-        assertEquals(1, Regex(ANDROID_EXECUTION_GUIDANCE_MARKER).findAll(twice).count())
+        assertEquals(1, twice.split(ANDROID_EXECUTION_GUIDANCE_MARKER).size - 1)
     }
 }
