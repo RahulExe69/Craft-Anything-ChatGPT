@@ -76,6 +76,21 @@ internal fun detectDependencySetups(filesJson: String): List<DependencySetup> {
     return setups.distinctBy { it.ecosystem }
 }
 
+
+internal fun androidStaticWebsitePrompt(): String = """
+Convert this existing web project into a dependency-free website that can run in Craft Anything's on-device Android preview.
+
+Requirements:
+- Preserve the current product, content, visual identity, interactions and important user flows. Do not replace it with a generic demo.
+- Make it browser-native: a root app/index.html, CSS files and browser JavaScript modules that modern Android WebView supports.
+- Do not require Node.js, npm, pnpm, Yarn, Bun, Vite, Next.js, webpack, TypeScript compilation, package installation or any build step.
+- Replace framework-only components with equivalent browser-native HTML, CSS and JavaScript where necessary. Keep responsive behaviour and accessible controls.
+- Do not use bare package imports or assume a package from node_modules exists. Use native browser APIs and local files. Do not add external services or deploy a backend.
+- If a requested feature fundamentally needs a server, database, authentication service or native module, do not fake it: keep the UI honest and explain the integration boundary.
+- Keep existing assets and useful source material. Remove package manifests and lockfiles only after all required website behaviour has been migrated and no package-based code is still used.
+- Do not run package-manager commands or claim a package build passed. Use the available project preview to verify the real index.html and report any limitation precisely.
+""".trim()
+
 internal fun dependencyInstallPrompt(setup: DependencySetup): String = buildString {
     appendLine("Prepare and install dependencies for this project on its actual execution target.")
     appendLine("Ecosystem: " + setup.ecosystem + ". Manifest: " + setup.manifest + ". Detected manager: " + setup.manager + ".")

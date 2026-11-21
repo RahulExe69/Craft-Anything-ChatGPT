@@ -42,6 +42,16 @@ class ProjectBuildToolsTest {
         assertTrue(setups.any { it.ecosystem == "Go" && it.command == "go mod download" })
     }
 
+
+    @Test
+    fun staticWebsiteFallbackNeverRequestsPackageInstallation() {
+        val prompt = androidStaticWebsitePrompt()
+        assertTrue(prompt.contains("dependency-free website"))
+        assertTrue(prompt.contains("Do not run package-manager commands"))
+        assertTrue(prompt.contains("do not fake it", ignoreCase = true))
+        assertFalse(prompt.contains("npm install"))
+    }
+
     @Test
     fun returnsNoSetupForPlainStaticSource() {
         assertTrue(detectDependencySetups(listing("index.html", "style.css", "app.js")).isEmpty())

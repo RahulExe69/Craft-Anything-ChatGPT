@@ -440,7 +440,7 @@ class MainActivity : ComponentActivity() {
                             if (BuildExecutionService.hasActiveBuild(context)) {
                                 throw IllegalStateException("A build is already running. Wait for it to finish before starting another.")
                             }
-                            val params = JSONObject(paramsJson)
+                            val params = JSONObject(applyAndroidExecutionGuidance(paramsJson))
                             if (params.optString("project").isBlank() && params.optString("project_folder").isBlank()) {
                                 val folder = File(File(context.filesDir, "projects"), "build-" + java.util.UUID.randomUUID().toString())
                                 params.put("project_folder", folder.absolutePath)
