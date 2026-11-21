@@ -111,7 +111,7 @@ internal fun ToolsScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("Tool registry", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(coreVersion, color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+        Text(coreVersion, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
@@ -120,7 +120,7 @@ internal fun ToolsScreen(
             label = { Text("Search tools") },
             placeholder = { Text("Name, ID, description or category") }
         )
-        Text("${filtered.size} of ${tools.size} tools", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelMedium)
+        Text("${filtered.size} of ${tools.size} tools", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
 
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -142,7 +142,7 @@ internal fun ToolsScreen(
                     modifier = Modifier.fillMaxWidth().clickable {
                         selectedId = if (selectedId == tool.id) null else tool.id
                     },
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -151,16 +151,16 @@ internal fun ToolsScreen(
                                 Text(tool.title.ifBlank { tool.id }, fontWeight = FontWeight.SemiBold)
                                 Text(tool.id, color = Color(0xFF9B7BFF), style = MaterialTheme.typography.labelSmall)
                             }
-                            Text(tool.toolsetTitle, color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                            Text(tool.toolsetTitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                         }
-                        Text(tool.summary, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                        Text(tool.summary, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         if (tool.requiresConsent) {
                             Text("Approval required", color = Color(0xFFFFC46B), style = MaterialTheme.typography.labelSmall)
                         }
                         if (selectedId == tool.id) {
                             Spacer(Modifier.height(4.dp))
-                            Text("INPUT SCHEMA", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
-                            Text(tool.inputSchema, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                            Text("INPUT SCHEMA", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                            Text(tool.inputSchema, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             OutlinedTextField(
                                 value = paramsJson,
                                 onValueChange = {
@@ -199,18 +199,18 @@ internal fun ToolsScreen(
             }
             if (filtered.isEmpty()) {
                 item {
-                    Text("No tools match that search.", color = Color(0xFF9A97A8), modifier = Modifier.padding(18.dp))
+                    Text("No tools match that search.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(18.dp))
                 }
             }
         }
 
         if (result.isNotBlank()) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D))) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(
                     Modifier.fillMaxWidth().heightIn(max = 180.dp)
                         .verticalScroll(rememberScrollState()).padding(12.dp)
                 ) {
-                    Text("LAST RESULT", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                    Text("LAST RESULT", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                     Text(result, style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -227,8 +227,8 @@ internal fun ToolsScreen(
                         "${tool.title} is marked by the Rust engine as running foreign code or changing a connected device. " +
                             "Approve this single invocation only if you trust the action."
                     )
-                    Text("PARAMETERS", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
-                    Text(pendingApprovalParams, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                    Text("PARAMETERS", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    Text(pendingApprovalParams, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {

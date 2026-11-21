@@ -33,16 +33,16 @@ internal fun ProjectConsolePanel(
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("ENVIRONMENT", color = Color(0xFFAD91FF), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             Text("Packages & build console", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Detected from this project's manifests and lockfiles.", color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+            Text("Detected from this project's manifests and lockfiles.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
 
         if (setups.isEmpty()) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), shape = RoundedCornerShape(16.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("No supported dependency manifest found", fontWeight = FontWeight.SemiBold)
                     Text(
                         "The project may be plain HTML/CSS/JS or use a toolchain not detected yet. Open Code to inspect its files.",
-                        color = Color(0xFFB9B5C6),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -50,7 +50,7 @@ internal fun ProjectConsolePanel(
         } else {
             setups.forEach { setup ->
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -59,7 +59,7 @@ internal fun ProjectConsolePanel(
                                 Text(setup.ecosystem, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     setup.manifest + " · " + setup.manager + (setup.lockfile?.let { " · " + it } ?: " · no lockfile detected"),
-                                    color = Color(0xFF9A97A8),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.labelSmall
                                 )
                             }
@@ -67,7 +67,7 @@ internal fun ProjectConsolePanel(
                         }
                         Text(
                             setup.command,
-                            color = Color(0xFFE0DCEC),
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
                         )
                         setup.caution?.let {
@@ -84,12 +84,12 @@ internal fun ProjectConsolePanel(
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2419)), shape = RoundedCornerShape(16.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer), shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("Execution environment", fontWeight = FontWeight.SemiBold, color = Color(0xFFFFD18A))
                 Text(
                     "This APK bundles the Craft Anything Rust engine, not Node.js, npm/pnpm/Yarn/Bun, Python, Go, Cargo or a desktop Gradle toolchain. The builder must verify the runtime on its actual execution target first; a missing tool or failed install must remain visible instead of being marked complete.",
-                    color = Color(0xFFE4D8C4),
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -98,14 +98,14 @@ internal fun ProjectConsolePanel(
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row {
                 Text("Build activity", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Text(lines.size.toString() + " events", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                Text(lines.size.toString() + " events", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF101015)), shape = RoundedCornerShape(16.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(16.dp)) {
                 if (lines.isEmpty()) {
                     Text(
                         "No build activity yet. Start a build or dependency task to see the engine's recent progress events here.",
                         modifier = Modifier.padding(14.dp),
-                        color = Color(0xFF9A97A8),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
                 } else {
@@ -114,7 +114,7 @@ internal fun ProjectConsolePanel(
                             val problem = line.contains("FAIL", true) || line.contains("ERROR", true) || line.contains("failed", true)
                             Text(
                                 line,
-                                color = if (problem) Color(0xFFFF9EAB) else Color(0xFFD0CBD9),
+                                color = if (problem) Color(0xFFFF9EAB) else MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
                             )
                         }

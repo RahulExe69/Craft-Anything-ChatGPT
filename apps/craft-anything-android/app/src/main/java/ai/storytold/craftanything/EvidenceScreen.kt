@@ -113,7 +113,7 @@ internal fun EvidenceScreen(
                 Text("Evidence & questions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
                     "${evidence.size} evidence records · ${unknowns.size} recorded questions",
-                    color = Color(0xFF9A97A8),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -127,8 +127,8 @@ internal fun EvidenceScreen(
         }
 
         if (error.isNotBlank()) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF3B2029))) {
-                Text(error, modifier = Modifier.padding(14.dp), color = Color(0xFFFFC2CD))
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Text(error, modifier = Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
 
@@ -148,13 +148,13 @@ internal fun EvidenceScreen(
                 }
             } else {
                 items(evidence, key = { it.id }) { item ->
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D)), shape = RoundedCornerShape(16.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(item.operation, fontWeight = FontWeight.SemiBold)
-                            Text(item.summary.ifBlank { "No summary was supplied for this record." }, color = Color(0xFFB9B5C6), style = MaterialTheme.typography.bodySmall)
+                            Text(item.summary.ifBlank { "No summary was supplied for this record." }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(item.confidence.replace('_', ' '), color = Color(0xFF9B7BFF), style = MaterialTheme.typography.labelSmall)
-                                Text("Coverage: ${item.coverage.ifBlank { "unknown" }}", color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                                Text("Coverage: ${item.coverage.ifBlank { "unknown" }}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                                 if (item.limitations > 0) {
                                     Text("${item.limitations} limits", color = Color(0xFFFFC46B), style = MaterialTheme.typography.labelSmall)
                                 }
@@ -178,13 +178,13 @@ internal fun EvidenceScreen(
                 }
             } else {
                 items(unknowns, key = { it.id }) { item ->
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF20202A)), shape = RoundedCornerShape(16.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(16.dp)) {
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(item.question, fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(item.severity.uppercase(), color = Color(0xFFFFC46B), style = MaterialTheme.typography.labelSmall)
                                 Text(item.status.replace('_', ' '), color = Color(0xFF9B7BFF), style = MaterialTheme.typography.labelSmall)
-                                Text(item.domain, color = Color(0xFF9A97A8), style = MaterialTheme.typography.labelSmall)
+                                Text(item.domain, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -196,10 +196,10 @@ internal fun EvidenceScreen(
 
 @Composable
 private fun EmptyEvidenceCard(title: String, description: String) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF15151D)), shape = RoundedCornerShape(16.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(16.dp)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(description, color = Color(0xFF9A97A8), style = MaterialTheme.typography.bodySmall)
+            Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

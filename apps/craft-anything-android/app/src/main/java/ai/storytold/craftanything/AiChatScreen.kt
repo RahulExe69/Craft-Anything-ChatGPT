@@ -90,7 +90,7 @@ internal fun AiChatScreen(
 
         Spacer(Modifier.height(8.dp))
         if (!connected && backends.none { it.enabled }) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), modifier = Modifier.fillMaxWidth()) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Connect an AI provider first", fontWeight = FontWeight.SemiBold)
                     Text("Open Settings to add OpenAI, Anthropic, Gemini, OpenRouter, or a compatible model server.")
@@ -110,7 +110,7 @@ internal fun AiChatScreen(
             if (messages.isEmpty()) {
                 item {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(18.dp),
                         modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                     ) {
@@ -132,7 +132,7 @@ internal fun AiChatScreen(
                 ) {
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = if (user) Color(0xFF30254A) else Color(0xFF17171F),
+                            containerColor = if (user) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                         ),
                         shape = RoundedCornerShape(18.dp),
                         modifier = Modifier.fillMaxWidth(0.92f),
@@ -148,7 +148,7 @@ internal fun AiChatScreen(
 
         if (pendingConsent != null) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2118)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -163,7 +163,7 @@ internal fun AiChatScreen(
         }
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(22.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -184,7 +184,7 @@ internal fun AiChatScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         if (busy) "Craft Anything is thinking…" else "Your project companion",
-                        color = Color(0xFF9A97A8),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.weight(1f)
                     )

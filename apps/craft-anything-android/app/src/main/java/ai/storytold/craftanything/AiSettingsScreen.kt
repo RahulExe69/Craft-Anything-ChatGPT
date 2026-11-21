@@ -156,7 +156,7 @@ internal fun AiSettingsScreen(
             status.backends.forEach { backend ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -201,7 +201,7 @@ internal fun AiSettingsScreen(
             OutlinedButton(onClick = { showForm = !showForm }) { Text(if (showForm) "Hide" else "Add") }
         }
         if (showForm) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF17171F)), modifier = Modifier.fillMaxWidth()) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box {
                         OutlinedButton(onClick = { providerMenu = true }, modifier = Modifier.fillMaxWidth()) {
