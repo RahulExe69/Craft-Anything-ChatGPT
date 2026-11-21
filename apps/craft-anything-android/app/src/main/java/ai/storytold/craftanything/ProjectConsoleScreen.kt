@@ -217,7 +217,7 @@ internal fun ProjectConsolePanel(
                         Column(Modifier.fillMaxWidth().padding(11.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 (result.exitCode?.let { "Exit code $it" } ?: "Process ended without an exit code") +
-                                    " · " + if (result.succeeded) "Succeeded" else "Failed" +
+                                    " · " + (if (result.succeeded) "Succeeded" else "Failed") +
                                     " · " + result.durationMs + " ms",
                                 color = if (result.succeeded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.SemiBold,
